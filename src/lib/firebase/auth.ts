@@ -17,9 +17,8 @@ interface RegisterInput {
   role: UserRole;
 }
 
-function defaultProfile(
+function baseProfile(
   user: User,
-  role: UserRole,
   familyId: string | null = null,
   parentId: string | null = null
 ) {
@@ -27,12 +26,11 @@ function defaultProfile(
     id: user.uid,
     email: user.email?.toLowerCase() ?? "",
     displayName: user.displayName || user.email?.split("@")[0] || "User",
-    role,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
 
-  if (role === "child") {
+  if (familyId) {
     return {
       ...base,
       familyId,
@@ -50,78 +48,90 @@ function defaultProfile(
 export async function registerWithEmail(input: RegisterInput) {
   const emailLower = input.email.trim().toLowerCase();
 
-  // If registering as a child, check pre-approval
-  let familyId: string | null = null;
-  let parentId: string | null = null;
-
-  if (input.role === "child") {
-    const profileRef = doc(db, "child_profiles", emailLower);
-    const profileSnap = await getDoc(profileRef);
-
-    if (!profileSnap.exists()) {
-      throw new Error(
-        "This email has not been pre-registered by a parent. Please ask your parent to add your account first."
-      );
-    }
-
-    const profileData = profileSnap.data();
-    familyId = profileData.familyId;
-    parentId = profileData.parentId;
-  }
-
-  // Create Firebase Auth user
+  // Create Firebase Auth user first so they are authenticated (signedIn() === true)
   const credentials = await createUserWithEmailAndPassword(
     auth,
     emailLower,
     input.password
   );
 
-  // Update Auth Profile DisplayName
-  if (input.displayName.trim()) {
-    await updateProfile(credentials.user, {
-      displayName: input.displayName.trim(),
-    });
-  }
-
   const userUid = credentials.user.uid;
 
-  // Create Firestore User Document
-  await setDoc(
-    doc(db, "users", userUid),
-    defaultProfile(
+  try {
+    let familyId: string | null = null;
+    let parentId: string | null = null;
+
+    if (input.role === "child") {
+      const profileRef = doc(db, "child_profiles", emailLower);
+      const profileSnap = await getDoc(profileRef);
+
+      if (!profileSnap.exists()) {
+        throw new Error(
+          "This email has not been pre-registered by a parent. Please ask your parent to add your account first."
+        );
+      }
+
+      const profileData = profileSnap.data();
+      familyId = profileData.familyId;
+      parentId = profileData.parentId;
+    }
+
+    // Update Auth Profile DisplayName
+    if (input.displayName.trim()) {
+      await updateProfile(credentials.user, {
+        displayName: input.displayName.trim(),
+      });
+    }
+
+    // Step 1: Create user doc with role omitted (role == null)
+    const userRef = doc(db, "users", userUid);
+    await setDoc(userRef, baseProfile(
       {
         ...credentials.user,
         displayName: input.displayName.trim() || credentials.user.displayName,
       } as User,
-      input.role,
       familyId,
       parentId
-    )
-  );
+    ));
 
-  // If child, link and activate
-  if (input.role === "child" && familyId) {
-    // 1. Create family member entry
-    const memberDocId = `${familyId}_${userUid}`;
-    await setDoc(doc(db, "family_members", memberDocId), {
-      id: memberDocId,
-      familyId,
-      userId: userUid,
-      role: "child",
-      status: "active",
-      createdAt: serverTimestamp(),
-    });
-
-    // 2. Mark profile as claimed
-    const profileRef = doc(db, "child_profiles", emailLower);
-    await updateDoc(profileRef, {
-      status: "CLAIMED",
-      claimedBy: userUid,
+    // Step 2: Update user doc to assign role (transition from null to initial role)
+    await updateDoc(userRef, {
+      role: input.role,
       updatedAt: serverTimestamp(),
     });
-  }
 
-  return credentials.user;
+    // If child, link and activate
+    if (input.role === "child" && familyId) {
+      // 1. Create family member entry (now that role: "child" is set and isChild() will evaluate to true)
+      const memberDocId = `${familyId}_${userUid}`;
+      await setDoc(doc(db, "family_members", memberDocId), {
+        id: memberDocId,
+        familyId,
+        userId: userUid,
+        role: "child",
+        status: "active",
+        createdAt: serverTimestamp(),
+      });
+
+      // 2. Mark profile as claimed
+      const profileRef = doc(db, "child_profiles", emailLower);
+      await updateDoc(profileRef, {
+        status: "CLAIMED",
+        claimedBy: userUid,
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    return credentials.user;
+  } catch (error) {
+    // If validation or database writes failed, clean up the Auth account to prevent orphaned credentials
+    try {
+      await credentials.user.delete();
+    } catch (deleteError) {
+      console.error("Failed to delete orphaned user account:", deleteError);
+    }
+    throw error;
+  }
 }
 
 export async function signInWithEmail(email: string, password: string) {
@@ -142,15 +152,22 @@ export async function signInWithGoogle() {
     const profileSnap = await getDoc(profileRef);
 
     if (profileSnap.exists()) {
-      // Pre-registered as child! Complete child onboarding
+      // Pre-registered as child!
       const profileData = profileSnap.data();
       const familyId = profileData.familyId;
       const parentId = profileData.parentId;
 
+      // Step 1: Create user doc with role omitted
       await setDoc(
         userRef,
-        defaultProfile(user, "child", familyId, parentId)
+        baseProfile(user, familyId, parentId)
       );
+
+      // Step 2: Assign role
+      await updateDoc(userRef, {
+        role: "child",
+        updatedAt: serverTimestamp(),
+      });
 
       // Create family member entry
       const memberDocId = `${familyId}_${user.uid}`;
@@ -171,7 +188,14 @@ export async function signInWithGoogle() {
       });
     } else {
       // Not pre-registered as a child, register as a parent
-      await setDoc(userRef, defaultProfile(user, "parent"));
+      // Step 1: Create user doc with role omitted
+      await setDoc(userRef, baseProfile(user));
+
+      // Step 2: Assign role
+      await updateDoc(userRef, {
+        role: "parent",
+        updatedAt: serverTimestamp(),
+      });
     }
   } else {
     // Existing user, just update last login

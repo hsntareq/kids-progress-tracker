@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { db } from "@/lib/firebase/config";
-import { doc, writeBatch, serverTimestamp, collection } from "firebase/firestore";
+import { doc, writeBatch, serverTimestamp, collection, updateDoc } from "firebase/firestore";
 
 interface ChildInput {
   name: string;
@@ -66,22 +66,33 @@ export default function OnboardingPage() {
 
     setLoading(true);
     try {
-      const batch = writeBatch(db);
-      
       // 1. Create a unique Family ID
       const familyRef = doc(collection(db, "families"));
       const familyId = familyRef.id;
 
-      // 2. Write Family document
+      // 2. Update Parent's User profile FIRST to set familyId so callerFamilyId() evaluates correctly in security rules
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        familyId,
+        updatedAt: serverTimestamp()
+      });
+
+      // 3. Create batch for the rest of the operations
+      const batch = writeBatch(db);
+      
+      // 4. Write Family document (with inviteCode and settings to satisfy security rules)
       batch.set(familyRef, {
         id: familyId,
+        familyId: familyId,
         name: familyName.trim(),
         ownerId: user.uid,
+        inviteCode: "",
+        settings: {},
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
 
-      // 3. Write Family Member document for Parent
+      // 5. Write Family Member document for Parent
       const memberDocId = `${familyId}_${user.uid}`;
       const memberRef = doc(db, "family_members", memberDocId);
       batch.set(memberRef, {
@@ -93,7 +104,7 @@ export default function OnboardingPage() {
         createdAt: serverTimestamp()
       });
 
-      // 4. Write Child Profiles for pre-approval
+      // 6. Write Child Profiles for pre-approval
       cleanedChildren.forEach(child => {
         const childProfileRef = doc(db, "child_profiles", child.email);
         batch.set(childProfileRef, {
@@ -107,15 +118,17 @@ export default function OnboardingPage() {
         });
       });
 
-      // 5. Update Parent's User profile
-      const userRef = doc(db, "users", user.uid);
-      batch.update(userRef, {
-        familyId,
-        updatedAt: serverTimestamp()
-      });
-
-      // Commit all writes atomically
-      await batch.commit();
+      // Commit batch with rollback on failure
+      try {
+        await batch.commit();
+      } catch (batchErr) {
+        // Rollback parent's familyId update if the batch fails
+        await updateDoc(userRef, {
+          familyId: null,
+          updatedAt: serverTimestamp()
+        });
+        throw batchErr;
+      }
 
       // Redirect parent to their dashboard
       router.push("/parent/dashboard");
