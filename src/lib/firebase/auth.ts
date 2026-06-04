@@ -17,7 +17,7 @@ interface RegisterInput {
   role: UserRole;
 }
 
-function baseProfile(
+export function baseProfile(
   user: User,
   familyId: string | null = null,
   parentId: string | null = null
