@@ -1,11 +1,23 @@
 import type { NextConfig } from "next";
+import fs from "fs";
+import path from "path";
 
-const nextConfig: NextConfig = {
+let nextConfig: NextConfig = {
   output: "export",
-  basePath: process.env.GITHUB_ACTIONS === "true" ? "/kids-progress-tracker" : "",
+  basePath: "/kids-progress-tracker",
   images: {
     unoptimized: true,
   },
 };
+
+const localConfigPath = path.join(__dirname, "next.config.local.js");
+if (fs.existsSync(localConfigPath)) {
+  try {
+    const localConfig = require(localConfigPath);
+    nextConfig = { ...nextConfig, ...localConfig };
+  } catch (err) {
+    console.warn("Failed to load local config override:", err);
+  }
+}
 
 export default nextConfig;

@@ -24,6 +24,7 @@
 # misc
 .DS_Store
 *.pem
+next.config.local.js
 
 # debug
 npm-debug.log*
