@@ -26,6 +26,7 @@ export function baseProfile(
     id: user.uid,
     email: user.email?.toLowerCase() ?? "",
     displayName: user.displayName || user.email?.split("@")[0] || "User",
+    role: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
@@ -58,9 +59,6 @@ export async function registerWithEmail(input: RegisterInput) {
   const userUid = credentials.user.uid;
 
   try {
-    let familyId: string | null = null;
-    let parentId: string | null = null;
-
     if (input.role === "child") {
       const profileRef = doc(db, "child_profiles", emailLower);
       const profileSnap = await getDoc(profileRef);
@@ -70,10 +68,6 @@ export async function registerWithEmail(input: RegisterInput) {
           "This email has not been pre-registered by a parent. Please ask your parent to add your account first."
         );
       }
-
-      const profileData = profileSnap.data();
-      familyId = profileData.familyId;
-      parentId = profileData.parentId;
     }
 
     // Update Auth Profile DisplayName
@@ -90,37 +84,16 @@ export async function registerWithEmail(input: RegisterInput) {
         ...credentials.user,
         displayName: input.displayName.trim() || credentials.user.displayName,
       } as User,
-      familyId,
-      parentId
+      null,
+      null
     ));
 
     // Step 2: Update user doc to assign role (transition from null to initial role)
     await updateDoc(userRef, {
-      role: input.role,
+      role: ["parent"],
+      activeRole: "parent",
       updatedAt: serverTimestamp(),
     });
-
-    // If child, link and activate
-    if (input.role === "child" && familyId) {
-      // 1. Create family member entry (now that role: "child" is set and isChild() will evaluate to true)
-      const memberDocId = `${familyId}_${userUid}`;
-      await setDoc(doc(db, "family_members", memberDocId), {
-        id: memberDocId,
-        familyId,
-        userId: userUid,
-        role: "child",
-        status: "active",
-        createdAt: serverTimestamp(),
-      });
-
-      // 2. Mark profile as claimed
-      const profileRef = doc(db, "child_profiles", emailLower);
-      await updateDoc(profileRef, {
-        status: "CLAIMED",
-        claimedBy: userUid,
-        updatedAt: serverTimestamp(),
-      });
-    }
 
     return credentials.user;
   } catch (error) {
@@ -136,81 +109,82 @@ export async function registerWithEmail(input: RegisterInput) {
 
 export async function signInWithEmail(email: string, password: string) {
   const credentials = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
-  return credentials.user;
-}
-
-export async function signInWithGoogle() {
-  const credentials = await signInWithPopup(auth, googleProvider);
   const user = credentials.user;
+
+  // Verify that the user document exists in Firestore
   const userRef = doc(db, "users", user.uid);
   const snapshot = await getDoc(userRef);
 
   if (!snapshot.exists()) {
-    // New user logging in via Google: Check if their email is pre-registered as a child
-    const emailLower = user.email?.toLowerCase() ?? "";
-    const profileRef = doc(db, "child_profiles", emailLower);
-    const profileSnap = await getDoc(profileRef);
-
-    if (profileSnap.exists()) {
-      // Pre-registered as child!
-      const profileData = profileSnap.data();
-      const familyId = profileData.familyId;
-      const parentId = profileData.parentId;
-
-      // Step 1: Create user doc with role omitted
-      await setDoc(
-        userRef,
-        baseProfile(user, familyId, parentId)
-      );
-
-      // Step 2: Assign role
-      await updateDoc(userRef, {
-        role: "child",
-        updatedAt: serverTimestamp(),
-      });
-
-      // Create family member entry
-      const memberDocId = `${familyId}_${user.uid}`;
-      await setDoc(doc(db, "family_members", memberDocId), {
-        id: memberDocId,
-        familyId,
-        userId: user.uid,
-        role: "child",
-        status: "active",
-        createdAt: serverTimestamp(),
-      });
-
-      // Mark profile as claimed
-      await updateDoc(profileRef, {
-        status: "CLAIMED",
-        claimedBy: user.uid,
-        updatedAt: serverTimestamp(),
-      });
-    } else {
-      // Not pre-registered as a child, register as a parent
-      // Step 1: Create user doc with role omitted
-      await setDoc(userRef, baseProfile(user));
-
-      // Step 2: Assign role
-      await updateDoc(userRef, {
-        role: "parent",
-        updatedAt: serverTimestamp(),
-      });
-    }
-  } else {
-    // Existing user, just update last login
-    await setDoc(
-      userRef,
-      {
-        email: user.email?.toLowerCase() ?? "",
-        displayName: user.displayName || user.email?.split("@")[0] || "User",
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
+    // If the profile document doesn't exist, we must log them out to prevent inconsistent state
+    await signOut(auth);
+    throw new Error("Your user profile was not found. Please sign up again.");
   }
 
   return user;
+}
+
+export async function signInWithGoogle() {
+  console.log("signInWithGoogle: starting signInWithPopup...");
+  const credentials = await signInWithPopup(auth, googleProvider);
+  const user = credentials.user;
+  console.log("signInWithGoogle: popup success. uid:", user.uid, "email:", user.email);
+
+  const userRef = doc(db, "users", user.uid);
+  let snapshot;
+  try {
+    console.log("signInWithGoogle: reading users doc for", user.uid);
+    snapshot = await getDoc(userRef);
+    console.log("signInWithGoogle: user doc exists:", snapshot.exists());
+  } catch (err) {
+    console.error("signInWithGoogle: error reading users doc:", err);
+    throw err;
+  }
+
+  if (!snapshot.exists()) {
+    try {
+      console.log("signInWithGoogle: creating new parent user doc...");
+      await setDoc(userRef, baseProfile(user, null, null));
+      console.log("signInWithGoogle: parent user doc created. updating role...");
+      await updateDoc(userRef, {
+        role: ["parent"],
+        activeRole: "parent",
+        updatedAt: serverTimestamp(),
+      });
+      console.log("signInWithGoogle: parent role updated.");
+    } catch (err) {
+      console.error("signInWithGoogle: error writing parent user doc / role:", err);
+      throw err;
+    }
+  } else {
+    try {
+      console.log("signInWithGoogle: user exists. updating last login...");
+      await setDoc(
+        userRef,
+        {
+          email: user.email?.toLowerCase() ?? "",
+          displayName: user.displayName || user.email?.split("@")[0] || "User",
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+      console.log("signInWithGoogle: last login updated.");
+    } catch (err) {
+      console.error("signInWithGoogle: error updating existing user:", err);
+      throw err;
+    }
+  }
+
+  return user;
+}
+
+export async function switchActiveProfile(userId: string, newRole: string, newFamilyId: string | null) {
+  const userRef = doc(db, "users", userId);
+  await updateDoc(userRef, {
+    activeRole: newRole,
+    familyId: newFamilyId,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function logout() {

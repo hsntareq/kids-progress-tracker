@@ -1,18 +1,24 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot, collection, query, where, getDoc, updateDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/config";
 import { useRouter, usePathname } from "next/navigation";
-import type { AppUser } from "@/lib/types/domain";
-import { logout as firebaseLogout } from "@/lib/firebase/auth";
+import type { AppUser, UserRole } from "@/lib/types/domain";
+import { logout as firebaseLogout, switchActiveProfile } from "@/lib/firebase/auth";
 
 interface AuthContextType {
   user: User | null;
   profile: AppUser | null;
   loading: boolean;
   logout: () => Promise<void>;
+  showToast: (message: string, type?: "success" | "error" | "info") => void;
+  memberships: { familyId: string | null; familyName: string; role: string }[];
+  switchProfile: (role: string, familyId: string | null) => Promise<void>;
+  pendingInvite: { familyId: string; familyName: string; parentId: string } | null;
+  acceptChildInvite: () => Promise<void>;
+  rejectChildInvite: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -20,37 +26,165 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   logout: async () => {},
+  showToast: () => {},
+  memberships: [],
+  switchProfile: async () => {},
+  pendingInvite: null,
+  acceptChildInvite: async () => {},
+  rejectChildInvite: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [memberships, setMemberships] = useState<{ familyId: string | null; familyName: string; role: string }[]>([]);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+  const [pendingInvite, setPendingInvite] = useState<{ familyId: string; familyName: string; parentId: string } | null>(null);
+
+  const showToast = useCallback((message: string, type: "success" | "error" | "info" = "success") => {
+    setToast({ message, type });
+  }, []);
   
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
+    let unsubscribeProfile: (() => void) | null = null;
+    let unsubscribeMemberships: (() => void) | null = null;
+    let unsubscribeInvite: (() => void) | null = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       
+      // Clean up previous subscriptions if they exist
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+        unsubscribeProfile = null;
+      }
+      if (unsubscribeMemberships) {
+        unsubscribeMemberships();
+        unsubscribeMemberships = null;
+      }
+      if (unsubscribeInvite) {
+        unsubscribeInvite();
+        unsubscribeInvite = null;
+      }
+
       if (!firebaseUser) {
         setProfile(null);
+        setMemberships([]);
+        setPendingInvite(null);
         setLoading(false);
         return;
       }
 
       // If user is authenticated, subscribe to their user document in Firestore
       const userRef = doc(db, "users", firebaseUser.uid);
-      const unsubscribeProfile = onSnapshot(
+      unsubscribeProfile = onSnapshot(
         userRef,
-        (docSnap) => {
+        async (docSnap) => {
           if (docSnap.exists()) {
-            setProfile(docSnap.data() as AppUser);
+            const data = docSnap.data();
+            
+            // Normalize role to UserRole[]
+            let roles: UserRole[] = [];
+            if (Array.isArray(data.role)) {
+              roles = data.role as UserRole[];
+            } else if (typeof data.role === "string" && data.role) {
+              roles = [data.role as UserRole];
+            }
+
+            // Normalize activeRole to UserRole
+            let activeRole = data.activeRole as UserRole;
+            if (!activeRole && roles.length > 0) {
+              activeRole = roles[0];
+            }
+
+            // Self-healing / Initialization if role is null or empty (e.g. signup failed to set role)
+            if (roles.length === 0) {
+              try {
+                const emailLower = firebaseUser.email?.toLowerCase() ?? "";
+                const childProfileRef = doc(db, "child_profiles", emailLower);
+                const childProfileSnap = await getDoc(childProfileRef);
+                
+                let targetRole: UserRole = "parent";
+                let targetFamilyId: string | null = null;
+                let targetParentId: string | null = null;
+
+                if (childProfileSnap.exists()) {
+                  targetRole = "child";
+                  const profileData = childProfileSnap.data();
+                  targetFamilyId = profileData.familyId;
+                  targetParentId = profileData.parentId;
+                }
+
+                await updateDoc(userRef, {
+                  role: [targetRole],
+                  activeRole: targetRole,
+                  familyId: targetFamilyId || data.familyId || null,
+                  parentId: targetParentId || data.parentId || null,
+                  updatedAt: serverTimestamp(),
+                });
+
+                if (targetRole === "child" && targetFamilyId) {
+                  const memberDocId = `${targetFamilyId}_${firebaseUser.uid}`;
+                  await setDoc(doc(db, "family_members", memberDocId), {
+                    id: memberDocId,
+                    familyId: targetFamilyId,
+                    userId: firebaseUser.uid,
+                    role: "child",
+                    status: "active",
+                    createdAt: serverTimestamp(),
+                  });
+
+                  await updateDoc(childProfileRef, {
+                    status: "CLAIMED",
+                    claimedBy: firebaseUser.uid,
+                    updatedAt: serverTimestamp(),
+                  });
+                }
+              } catch (err) {
+                console.error("Self-healing role recovery failed:", err);
+                setProfile({
+                  ...data,
+                  role: ["parent"],
+                  activeRole: "parent",
+                } as AppUser);
+                setLoading(false);
+              }
+              return;
+            }
+
+            // Check if it is a legacy document that needs migration
+            const isLegacy = (typeof data.role === "string" && data.role !== "") || 
+                             (Array.isArray(data.role) && data.role.length > 0 && !data.activeRole);
+
+            if (isLegacy) {
+              // Trigger background migration but do not disable loading spinner yet.
+              // When the document updates, onSnapshot will fire again with isLegacy = false.
+              updateDoc(userRef, {
+                role: roles,
+                activeRole: activeRole,
+                updatedAt: serverTimestamp(),
+              }).catch((err) => {
+                console.error("Failed to auto-migrate legacy user role fields:", err);
+                // Fallback: set normalized profile in state so they can use dashboard
+                setProfile({
+                  ...data,
+                  role: roles,
+                  activeRole,
+                } as AppUser);
+                setLoading(false);
+              });
+            } else {
+              setProfile(data as AppUser);
+              setLoading(false);
+            }
           } else {
             setProfile(null);
+            setLoading(false);
           }
-          setLoading(false);
         },
         (error) => {
           console.error("Error listening to user profile:", error);
@@ -58,49 +192,95 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       );
 
-      return () => unsubscribeProfile();
-    });
+      // Subscribe to active memberships in the family_members collection
+      const membershipsQuery = query(
+        collection(db, "family_members"),
+        where("userId", "==", firebaseUser.uid),
+        where("status", "in", ["active", "ACTIVE", "Active"])
+      );
 
-    return () => unsubscribeAuth();
-  }, []);
+      unsubscribeMemberships = onSnapshot(
+        membershipsQuery,
+        async (querySnap) => {
+          const membersList = querySnap.docs.map((d) => d.data());
+          
+          // Fetch family names for each membership
+          const resolvedMemberships = await Promise.all(
+            membersList.map(async (m) => {
+              try {
+                const familySnap = await getDoc(doc(db, "families", m.familyId));
+                return {
+                  familyId: m.familyId as string,
+                  familyName: familySnap.exists() ? (familySnap.data().name as string) : "Unknown Family",
+                  role: m.role as string,
+                };
+              } catch (err) {
+                console.error("Error loading family for membership switcher:", err);
+                return {
+                  familyId: m.familyId as string,
+                  familyName: "Family Group",
+                  role: m.role as string,
+                };
+              }
+            })
+          );
+          
+          setMemberships(resolvedMemberships);
+        },
+        (err) => {
+          console.error("Error listening to memberships:", err);
+        }
+      );
 
-  // Route Guards
-  useEffect(() => {
-    if (loading) return;
-
-    const isPublicPath = pathname === "/" || pathname === "/login";
-
-    if (!user) {
-      // Unauthenticated users trying to access protected pages
-      if (!isPublicPath) {
-        router.push("/login");
-      }
-    } else {
-      // Authenticated users
-      if (profile) {
-        if (profile.role === "parent") {
-          if (!profile.familyId) {
-            // Parent has no household yet, force onboarding
-            if (pathname !== "/onboarding") {
-              router.push("/onboarding");
+      // Subscribe to child profile pre-approvals to check for invitations
+      const emailLower = firebaseUser.email?.toLowerCase() ?? "";
+      const childProfileRef = doc(db, "child_profiles", emailLower);
+      unsubscribeInvite = onSnapshot(
+        childProfileRef,
+        async (docSnap) => {
+          if (docSnap.exists() && docSnap.data().status === "APPROVED") {
+            const inviteData = docSnap.data();
+            try {
+              const familySnap = await getDoc(doc(db, "families", inviteData.familyId));
+              const familyName = familySnap.exists() ? (familySnap.data().name as string) : "Unknown Family";
+              setPendingInvite({
+                familyId: inviteData.familyId,
+                familyName,
+                parentId: inviteData.parentId,
+              });
+            } catch (err) {
+              console.error("Error loading family for invite:", err);
+              setPendingInvite({
+                familyId: inviteData.familyId,
+                familyName: "Family Group",
+                parentId: inviteData.parentId,
+              });
             }
           } else {
-            // Parent has a household, restrict from onboarding and login pages
-            if (isPublicPath || pathname === "/onboarding") {
-              router.push("/parent/dashboard");
-            }
+            setPendingInvite(null);
           }
-        } else if (profile.role === "child") {
-          // Child has family context, restrict from onboarding, login, and parent dashboard pages
-          if (isPublicPath || pathname === "/onboarding" || pathname.startsWith("/parent")) {
-            router.push("/child/dashboard");
-          }
+        },
+        (err) => {
+          console.error("Error listening to child profile invite:", err);
         }
-      }
-    }
-  }, [user, profile, loading, pathname, router]);
+      );
+    });
 
-  const logout = async () => {
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeProfile) {
+        unsubscribeProfile();
+      }
+      if (unsubscribeMemberships) {
+        unsubscribeMemberships();
+      }
+      if (unsubscribeInvite) {
+        unsubscribeInvite();
+      }
+    };
+  }, []);
+
+  const logout = useCallback(async () => {
     setLoading(true);
     try {
       await firebaseLogout();
@@ -110,10 +290,157 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  // Route Guards
+  useEffect(() => {
+    if (loading) return;
+
+    const isPublicPath = pathname === "/login";
+
+    if (!user) {
+      // Unauthenticated users trying to access protected pages
+      if (!isPublicPath) {
+        router.push("/login");
+      }
+    } else {
+      // Authenticated users
+      if (profile) {
+        if (profile.activeRole === "parent") {
+          if (!profile.familyId) {
+            // Parent has no household yet, force onboarding
+            if (pathname !== "/onboarding") {
+              router.push("/onboarding");
+            }
+          } else {
+            // Parent has a household, restrict from onboarding, login, and root pages
+            if (pathname === "/" || pathname === "/login" || pathname === "/onboarding") {
+              router.push("/dashboard");
+            }
+          }
+        } else if (profile.activeRole === "child") {
+          // Child has family context, restrict from onboarding, login, and root pages
+          if (
+            pathname === "/" ||
+            pathname === "/login" ||
+            pathname === "/onboarding"
+          ) {
+            router.push("/dashboard");
+          }
+        }
+      } else {
+        // Authenticated but no profile (profile is null).
+        // This is an inconsistent state (e.g., database was reset).
+        // If they are on a protected page, sign them out to clear the stale session.
+        if (!isPublicPath) {
+          setTimeout(() => {
+            logout();
+          }, 0);
+        }
+      }
+    }
+  }, [user, profile, loading, pathname, router, logout]);
+
+  const switchProfile = useCallback(async (role: string, familyId: string | null) => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      await switchActiveProfile(user.uid, role, familyId);
+      showToast(`Switched role to: ${role === "admin" ? "Admin" : role === "parent" ? "Parent" : "Kid"}`, "success");
+      router.push("/dashboard");
+    } catch (err) {
+      console.error("Failed to switch active profile:", err);
+      showToast("Switch failed: insufficient permissions.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [user, router, showToast]);
+
+  const acceptChildInvite = useCallback(async () => {
+    if (!user || !profile || !pendingInvite) return;
+    setLoading(true);
+    try {
+      const emailLower = user.email?.toLowerCase() ?? "";
+      const childProfileRef = doc(db, "child_profiles", emailLower);
+      const userRef = doc(db, "users", user.uid);
+      
+      const newRoles = Array.from(new Set([...(profile.role || []), "child" as UserRole]));
+
+      // 1. Update user profile roles
+      await updateDoc(userRef, {
+        role: newRoles,
+        activeRole: "child",
+        familyId: pendingInvite.familyId,
+        parentId: pendingInvite.parentId,
+        updatedAt: serverTimestamp(),
+      });
+
+      // 2. Create family membership
+      const memberDocId = `${pendingInvite.familyId}_${user.uid}`;
+      await setDoc(doc(db, "family_members", memberDocId), {
+        id: memberDocId,
+        familyId: pendingInvite.familyId,
+        userId: user.uid,
+        role: "child",
+        status: "active",
+        createdAt: serverTimestamp(),
+      });
+
+      // 3. Mark child profile as CLAIMED
+      await updateDoc(childProfileRef, {
+        status: "CLAIMED",
+        claimedBy: user.uid,
+        updatedAt: serverTimestamp(),
+      });
+
+      showToast("Successfully joined family as a Child!", "success");
+      setPendingInvite(null);
+      router.push("/dashboard");
+    } catch (err) {
+      console.error("Failed to accept child invitation:", err);
+      showToast("Failed to join family.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [user, profile, pendingInvite, showToast, router]);
+
+  const rejectChildInvite = useCallback(async () => {
+    if (!user || !pendingInvite) return;
+    setLoading(true);
+    try {
+      const emailLower = user.email?.toLowerCase() ?? "";
+      const childProfileRef = doc(db, "child_profiles", emailLower);
+      
+      // Update child profile status to REJECTED
+      await updateDoc(childProfileRef, {
+        status: "REJECTED",
+        updatedAt: serverTimestamp(),
+      });
+
+      showToast("Invitation rejected.", "info");
+      setPendingInvite(null);
+    } catch (err) {
+      console.error("Failed to reject child invitation:", err);
+      showToast("Failed to reject invitation.", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [user, pendingInvite, showToast]);
+
+  // Combine memberships query results with Admin allowed role option
+  const fullMemberships = [...memberships];
+  if (profile?.role?.includes("admin") || profile?.activeRole === "admin") {
+    if (!fullMemberships.some((m) => m.role === "admin" && m.familyId === null)) {
+      fullMemberships.push({
+        familyId: null,
+        familyName: "System Admin Control",
+        role: "admin",
+      });
+    }
+  }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, logout, showToast, memberships: fullMemberships, switchProfile, pendingInvite, acceptChildInvite, rejectChildInvite }}>
       {loading ? (
         <div className="ui-app-bg min-h-screen flex items-center justify-center">
           <div className="text-center animate-pulse">
@@ -122,9 +449,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       ) : (
-        children
+        <>
+          {children}
+          {toast && (
+            <Toast
+              message={toast.message}
+              type={toast.type}
+              onClose={() => setToast(null)}
+            />
+          )}
+        </>
       )}
     </AuthContext.Provider>
+  );
+}
+
+function Toast({
+  message,
+  type,
+  onClose,
+}: {
+  message: string;
+  type: "success" | "error" | "info";
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const bgClass =
+    type === "success"
+      ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+      : type === "error"
+      ? "bg-rose-50 border-rose-200 text-rose-800"
+      : "bg-teal-50 border-teal-200 text-teal-800";
+
+  const icon =
+    type === "success" ? "✨" : type === "error" ? "❌" : "ℹ️";
+
+  return (
+    <div className="fixed bottom-5 right-5 z-[9999] max-w-sm w-full enter-rise">
+      <div className={`flex items-center gap-3 p-4 rounded-xl border shadow-xl ${bgClass} backdrop-blur-md`}>
+        <span className="text-lg">{icon}</span>
+        <div className="flex-1 text-sm font-semibold">{message}</div>
+        <button
+          onClick={onClose}
+          className="text-slate-400 hover:text-slate-600 transition-colors text-xs font-bold p-1 cursor-pointer"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
   );
 }
 

@@ -6,38 +6,40 @@ import {
   registerWithEmail,
   signInWithGoogle,
 } from "@/lib/firebase/auth";
+import { useAuth } from "@/components/auth-provider";
+import { useRouter } from "next/navigation";
+import { User, Users } from "lucide-react";
 
 export default function LoginPage() {
+  const { showToast } = useAuth();
+  const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
-  const [role, setRole] = useState<"parent" | "child">("parent");
+  const [authRole, setAuthRole] = useState<"parent" | "child">("parent");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
+    setAuthError(null);
+    setAuthSubmitting(true);
 
     try {
       if (isLogin) {
-        // Sign In
         await signInWithEmail(email, password);
       } else {
-        // Sign Up
         await registerWithEmail({
           email,
           password,
           displayName,
-          role,
+          role: authRole,
         });
       }
     } catch (err: unknown) {
       console.error(err);
       const errorVal = err as Error;
-      // Clean Firebase auth error message
       let message = errorVal.message || "An unexpected error occurred.";
       if (message.includes("auth/invalid-credential")) {
         message = "Invalid email or password.";
@@ -46,23 +48,25 @@ export default function LoginPage() {
       } else if (message.includes("auth/weak-password")) {
         message = "Password should be at least 6 characters.";
       }
-      setError(message);
+      setAuthError(message);
     } finally {
-      setLoading(false);
+      setAuthSubmitting(false);
     }
   };
 
   const handleGoogleAuth = async () => {
-    setError(null);
-    setLoading(true);
+    setAuthError(null);
+    setAuthSubmitting(true);
     try {
       await signInWithGoogle();
+      showToast("Google login successful! Welcome.", "success");
+      router.push("/dashboard");
     } catch (err: unknown) {
       console.error(err);
       const errorVal = err as Error;
-      setError(errorVal.message || "Google Authentication failed.");
+      setAuthError(errorVal.message || "Google Authentication failed.");
     } finally {
-      setLoading(false);
+      setAuthSubmitting(false);
     }
   };
 
@@ -94,7 +98,7 @@ export default function LoginPage() {
             }`}
             onClick={() => {
               setIsLogin(true);
-              setError(null);
+              setAuthError(null);
             }}
             type="button"
           >
@@ -108,7 +112,7 @@ export default function LoginPage() {
             }`}
             onClick={() => {
               setIsLogin(false);
-              setError(null);
+              setAuthError(null);
             }}
             type="button"
           >
@@ -117,9 +121,9 @@ export default function LoginPage() {
         </div>
 
         {/* Error Alert */}
-        {error && (
+        {authError && (
           <div className="mb-6 p-4 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm leading-relaxed enter-fade">
-            <span className="font-semibold">Error:</span> {error}
+            <span className="font-semibold">Error:</span> {authError}
           </div>
         )}
 
@@ -133,28 +137,30 @@ export default function LoginPage() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  className={`py-2 px-3 text-sm font-semibold border rounded-xl transition-all ${
-                    role === "parent"
+                  className={`py-2.5 px-3 text-sm font-semibold border rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    authRole === "parent"
                       ? "border-teal-600 bg-teal-50/50 text-teal-800"
                       : "border-slate-200 hover:bg-slate-50 text-slate-700"
                   }`}
-                  onClick={() => setRole("parent")}
+                  onClick={() => setAuthRole("parent")}
                 >
-                  👨‍👩‍👧 Parent
+                  <User className="w-4 h-4 flex-shrink-0" />
+                  <span>Parent</span>
                 </button>
                 <button
                   type="button"
-                  className={`py-2 px-3 text-sm font-semibold border rounded-xl transition-all ${
-                    role === "child"
+                  className={`py-2.5 px-3 text-sm font-semibold border rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    authRole === "child"
                       ? "border-teal-600 bg-teal-50/50 text-teal-800"
                       : "border-slate-200 hover:bg-slate-50 text-slate-700"
                   }`}
-                  onClick={() => setRole("child")}
+                  onClick={() => setAuthRole("child")}
                 >
-                  👶 Kid
+                  <Users className="w-4 h-4 flex-shrink-0" />
+                  <span>Kid</span>
                 </button>
               </div>
-              {role === "child" && (
+              {authRole === "child" && (
                 <p className="text-xs text-amber-600 font-semibold leading-relaxed mt-1 animate-pulse">
                   ⚠️ Note: Children can only sign up if their parent has already added their email to the family.
                 </p>
@@ -213,9 +219,9 @@ export default function LoginPage() {
           <button
             className="ui-button-primary ui-focus w-full py-3 mt-4 text-center text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
             type="submit"
-            disabled={loading}
+            disabled={authSubmitting}
           >
-            {loading ? (
+            {authSubmitting ? (
               <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
             ) : isLogin ? (
               "Sign In"
@@ -234,11 +240,11 @@ export default function LoginPage() {
           <div className="flex-1 border-t border-slate-200"></div>
         </div>
 
-        {/* Google Authentication Button */}
+        {/* Google Auth Button */}
         <button
           className="ui-button-secondary ui-focus w-full py-3 text-sm font-semibold flex items-center justify-center gap-2 cursor-pointer"
           onClick={handleGoogleAuth}
-          disabled={loading}
+          disabled={authSubmitting}
           type="button"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">

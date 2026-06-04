@@ -4,7 +4,8 @@ export interface AppUser {
   id: string;
   email: string;
   displayName: string;
-  role: UserRole;
+  role: UserRole[];
+  activeRole: UserRole;
   familyId?: string | null;
   parentId?: string | null;
   points?: number;
