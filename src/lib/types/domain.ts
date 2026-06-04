@@ -5,6 +5,28 @@ export interface AppUser {
   email: string;
   displayName: string;
   role: UserRole;
+  familyId?: string | null;
+  parentId?: string | null;
+  points?: number;
   createdAt: unknown;
   updatedAt: unknown;
+}
+
+export interface Family {
+  id: string;
+  name: string;
+  ownerId: string;
+  createdAt: unknown;
+  updatedAt: unknown;
+}
+
+export interface ChildProfile {
+  email: string;
+  name: string;
+  familyId: string;
+  parentId: string;
+  role: "child";
+  status: "APPROVED" | "CLAIMED";
+  claimedBy?: string | null;
+  createdAt: unknown;
 }
