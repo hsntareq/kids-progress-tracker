@@ -1,0 +1,759 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function callerUserDoc() {
+      return get(/databases/$(database)/documents/users/$(uid())).data;
+    }
+
+    function callerRole() {
+      return callerUserDoc().role;
+    }
+
+    function callerFamilyId() {
+      return callerUserDoc().familyId;
+    }
+
+    function callerHasNoFamily() {
+      return callerFamilyId() == null || callerFamilyId() == '';
+    }
+
+    function resourceHasNoFamily() {
+      return resource.data.familyId == null || resource.data.familyId == '';
+    }
+
+    function isAdmin() {
+      return signedIn() && callerRole() in ['admin', 'ADMIN', 'Admin'];
+    }
+
+    // System identity is expected from trusted backend token claims.
+    function isSystem() {
+      return signedIn() && request.auth.token.system == true;
+    }
+
+    function isParent() {
+      return signedIn() && callerRole() in ['parent', 'PARENT', 'Parent'];
+    }
+
+    function isChild() {
+      return signedIn() && callerRole() in ['child', 'CHILD', 'Child'];
+    }
+
+    function callerEmail() {
+      return signedIn() && request.auth.token.email != null ? request.auth.token.email : null;
+    }
+
+    function hasApprovedChildProfileForFamily(familyId) {
+      return callerEmail() != null
+        && exists(/databases/$(database)/documents/child_profiles/$(callerEmail()))
+        && get(/databases/$(database)/documents/child_profiles/$(callerEmail())).data.familyId == familyId
+        && get(/databases/$(database)/documents/child_profiles/$(callerEmail())).data.role in ['child', 'CHILD', 'Child']
+        && get(/databases/$(database)/documents/child_profiles/$(callerEmail())).data.status in ['APPROVED', 'approved', 'Approved', 'CLAIMED', 'claimed', 'Claimed'];
+    }
+
+    function sameFamily(data) {
+      return signedIn() && data.familyId is string && data.familyId == callerFamilyId();
+    }
+
+    function memberDocId(familyId, userId) {
+      return familyId + '_' + userId;
+    }
+
+    function memberDoc(familyId, userId) {
+      return get(/databases/$(database)/documents/family_members/$(memberDocId(familyId, userId))).data;
+    }
+
+    function memberDocExists(familyId, userId) {
+      return exists(/databases/$(database)/documents/family_members/$(memberDocId(familyId, userId)));
+    }
+
+    function memberStatus(familyId, userId) {
+      return memberDocExists(familyId, userId) ? memberDoc(familyId, userId).status : null;
+    }
+
+    function memberRole(familyId, userId) {
+      return memberDocExists(familyId, userId) ? memberDoc(familyId, userId).role : null;
+    }
+
+    function isActiveStatus(status) {
+      return status in ['ACTIVE', 'active', 'Active'];
+    }
+
+    function isPendingStatus(status) {
+      return status in ['PENDING', 'pending', 'Pending'];
+    }
+
+    function isFamilyOwner(familyId) {
+      return get(/databases/$(database)/documents/families/$(familyId)).data.ownerId == uid();
+    }
+
+    function isActiveFamilyMember(familyId, userId) {
+      return isActiveStatus(memberStatus(familyId, userId));
+    }
+
+    function hasPendingOrActiveMembershipAfter(familyId, userId) {
+      return isPendingStatus(getAfter(/databases/$(database)/documents/family_members/$(memberDocId(familyId, userId))).data.status)
+        || isActiveStatus(getAfter(/databases/$(database)/documents/family_members/$(memberDocId(familyId, userId))).data.status);
+    }
+
+    function writerCanTargetFamily(targetFamilyId) {
+      return signedIn() && (
+        isAdmin()
+        || isSystem()
+        || (
+          targetFamilyId == callerFamilyId()
+          && isActiveFamilyMember(targetFamilyId, uid())
+        )
+      );
+    }
+
+    function isSelf(userId) {
+      return signedIn() && uid() == userId;
+    }
+
+    function roleUnchanged() {
+      return request.resource.data.role == resource.data.role;
+    }
+
+    function canAssignInitialSelfRole() {
+      return resource.data.role == null
+        && request.resource.data.role in ['PARENT', 'CHILD', 'parent', 'child', 'Parent', 'Child'];
+    }
+
+    function familyUnchanged() {
+      return request.resource.data.familyId == resource.data.familyId;
+    }
+
+    function validRole(role) {
+      return role in ['PARENT', 'CHILD', 'ADMIN', 'parent', 'child', 'admin', 'Parent', 'Child', 'Admin'];
+    }
+
+    // Core invariant: point balance cannot be changed directly in users docs.
+    function pointsUnchanged() {
+      return request.resource.data.points == resource.data.points;
+    }
+
+    function parentInSameFamily(data) {
+      return isParent()
+        && sameFamily(data)
+        && (
+          (
+            isActiveFamilyMember(data.familyId, uid())
+            && memberRole(data.familyId, uid()) in ['PARENT', 'parent', 'Parent']
+          )
+          || isFamilyOwner(data.familyId)
+        );
+    }
+
+    function immutableTransactionFields() {
+      return request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.amount == resource.data.amount
+        && request.resource.data.reason == resource.data.reason
+        && request.resource.data.referenceId == resource.data.referenceId
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function transactionStatusTransitionAllowed() {
+      return resource.data.status == 'PENDING'
+        && request.resource.data.status in ['APPROVED', 'REJECTED'];
+    }
+
+    function immutableSpendingRequestFields() {
+      return request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.childId == resource.data.childId
+        && request.resource.data.parentId == resource.data.parentId
+        && request.resource.data.points == resource.data.points
+        && request.resource.data.purpose == resource.data.purpose
+        && request.resource.data.transactionId == resource.data.transactionId
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function spendingStatusTransitionAllowed() {
+      return resource.data.status == 'PENDING'
+        && request.resource.data.status in ['APPROVED', 'REJECTED'];
+    }
+
+    function immutableNotificationFields() {
+      return request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.title == resource.data.title
+        && request.resource.data.message == resource.data.message
+        && request.resource.data.relatedId == resource.data.relatedId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.eventKey == resource.data.eventKey;
+    }
+
+    function immutableXpTransactionFields() {
+      return request.resource.data.userId == resource.data.userId
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.taskId == resource.data.taskId
+        && request.resource.data.milestoneId == resource.data.milestoneId
+        && request.resource.data.xpAmount == resource.data.xpAmount
+        && request.resource.data.reason == resource.data.reason
+        && request.resource.data.sourceEvent == resource.data.sourceEvent
+        && request.resource.data.eventKey == resource.data.eventKey
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    function taskSubmissionDocId(taskId, childId) {
+      return taskId + '_' + childId;
+    }
+
+    // Families
+    match /families/{familyId} {
+      allow read: if isAdmin()
+        || (signedIn() && callerHasNoFamily())
+        || (isParent() && familyId == callerFamilyId())
+        || (isParent() && familyId == callerFamilyId() && isFamilyOwner(familyId))
+        || (
+          familyId == callerFamilyId()
+          && (
+            isActiveStatus(memberStatus(familyId, uid()))
+            || isPendingStatus(memberStatus(familyId, uid()))
+          )
+        );
+
+      // Parent owner creates family.
+      allow create: if isParent()
+        && request.resource.data.id == familyId
+        && request.resource.data.familyId == familyId
+        && request.resource.data.ownerId == uid()
+        && request.resource.data.inviteCode is string
+        && request.resource.data.settings is map;
+
+      // Only family owner parent can update settings.
+      allow update: if isAdmin() || (
+        isParent()
+        && familyId == callerFamilyId()
+        && resource.data.ownerId == uid()
+        && request.resource.data.ownerId == resource.data.ownerId
+      );
+
+      allow delete: if false;
+    }
+
+    // Users
+    match /users/{userId} {
+      // Users can read any profile if signed in (required for username uniqueness checks).
+      allow read: if signedIn();
+
+      allow create: if isSelf(userId)
+        && request.resource.data.id == userId
+        && request.resource.data.role == null
+        && (request.resource.data.familyId == null || request.resource.data.familyId is string);
+
+      // Own profile update without privilege escalation or point tampering.
+      allow update: if isAdmin() || (
+        isSelf(userId)
+        && pointsUnchanged()
+        && (roleUnchanged() || canAssignInitialSelfRole())
+        && (
+          // Parent self-onboarding: set familyId once from null.
+          familyUnchanged()
+          || (
+            resourceHasNoFamily()
+            && request.resource.data.familyId is string
+            && request.resource.data.role in ['PARENT', 'parent', 'Parent']
+            && hasPendingOrActiveMembershipAfter(request.resource.data.familyId, userId)
+          )
+          || (
+            resourceHasNoFamily()
+            && request.resource.data.familyId is string
+            && request.resource.data.role in ['CHILD', 'child', 'Child']
+            && hasPendingOrActiveMembershipAfter(request.resource.data.familyId, userId)
+          )
+        )
+      ) || (
+        // Parent can manage child profile inside same family, but cannot alter role/points/family.
+        isParent()
+        && (
+          sameFamily(resource.data)
+          || (
+            resourceHasNoFamily()
+            && request.resource.data.familyId == callerFamilyId()
+          )
+        )
+        && resource.data.role in ['child', 'CHILD', 'Child']
+        && pointsUnchanged()
+        && roleUnchanged()
+        && (
+          familyUnchanged()
+          || (
+            resourceHasNoFamily()
+            && request.resource.data.familyId == callerFamilyId()
+          )
+        )
+      );
+
+      allow delete: if false;
+    }
+
+    // Family members relationship collection.
+    match /family_members/{memberId} {
+      allow read: if isAdmin() || isSystem() || (
+        resource.data.userId == uid()
+      ) || (
+        signedIn() && memberId.matches('.*' + uid() + '$')
+      ) || (
+        parentInSameFamily(resource.data)
+      );
+
+      // Child creates own pending join request. Parent owner may create active parent membership.
+      allow create: if isAdmin() || isSystem() || (
+        isChild()
+        && request.resource.data.userId == uid()
+        && request.resource.data.role in ['CHILD', 'child']
+        && request.resource.data.status in ['PENDING', 'pending']
+        && request.resource.data.familyId is string
+        && request.resource.data.id == memberId
+      ) || (
+        // Child can auto-activate membership when parent pre-approved profile exists for caller email.
+        isChild()
+        && request.resource.data.userId == uid()
+        && request.resource.data.role in ['CHILD', 'child', 'Child']
+        && request.resource.data.status in ['ACTIVE', 'active', 'Active']
+        && request.resource.data.familyId is string
+        && request.resource.data.id == memberId
+        && hasApprovedChildProfileForFamily(request.resource.data.familyId)
+      ) || (
+        isParent()
+        && request.resource.data.userId == uid()
+        && request.resource.data.role in ['PARENT', 'parent']
+        && request.resource.data.status in ['ACTIVE', 'active']
+        && request.resource.data.familyId is string
+        && (
+          request.resource.data.familyId == callerFamilyId()
+          || (
+            callerHasNoFamily()
+            && getAfter(/databases/$(database)/documents/families/$(request.resource.data.familyId)).data.ownerId == uid()
+          )
+        )
+        && request.resource.data.id == memberId
+      );
+
+      // Owner parent can approve/remove members. No arbitrary role changes.
+      allow update: if isAdmin() || isSystem() || (
+        isParent()
+        && resource.data.familyId == callerFamilyId()
+        && get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.ownerId == uid()
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.role == resource.data.role
+        && (
+          (
+            resource.data.status in ['PENDING', 'pending']
+            && request.resource.data.status in ['ACTIVE', 'active', 'REMOVED', 'removed']
+          )
+          || (
+            resource.data.status in ['ACTIVE', 'active']
+            && request.resource.data.status in ['REMOVED', 'removed']
+          )
+        )
+      );
+
+      allow delete: if false;
+    }
+
+    // Parent-approved child profiles (no invite flow).
+    match /child_profiles/{profileId} {
+      allow read: if isSystem() || isAdmin() || parentInSameFamily(resource.data) || (
+        signedIn()
+        && callerEmail() != null
+        && resource.data.email == callerEmail()
+      );
+
+      allow create: if isSystem() || isAdmin() || (
+        isParent()
+        && request.resource.data.familyId == callerFamilyId()
+        && request.resource.data.email is string
+        && request.resource.data.role in ['child', 'CHILD', 'Child']
+        && request.resource.data.status in ['APPROVED', 'approved', 'Approved']
+      );
+
+      allow update: if isSystem() || isAdmin() || (
+        isParent()
+        && parentInSameFamily(resource.data)
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role
+      ) || (
+        signedIn()
+        && callerEmail() != null
+        && resource.data.email == callerEmail()
+        && resource.data.status in ['APPROVED', 'approved', 'Approved']
+        && request.resource.data.status in ['CLAIMED', 'claimed', 'Claimed']
+        && request.resource.data.claimedBy == uid()
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.role == resource.data.role
+      );
+
+      allow delete: if false;
+    }
+
+    // Milestones
+    match /milestones/{milestoneId} {
+      allow read: if isSystem() || isAdmin() || parentInSameFamily(resource.data) || (
+        isChild() && sameFamily(resource.data) && resource.data.childId == uid()
+      );
+
+      allow create: if (isSystem() || isAdmin()) || (
+        isParent()
+        && writerCanTargetFamily(request.resource.data.familyId)
+        && request.resource.data.parentId == uid()
+        && request.resource.data.childId is string
+      );
+
+      allow update: if (isSystem() || isAdmin()) || (
+        isParent()
+        && parentInSameFamily(resource.data)
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.childId == resource.data.childId
+        && request.resource.data.parentId == resource.data.parentId
+      );
+
+      allow delete: if false;
+    }
+
+    // Spending requests
+    match /spending_requests/{requestId} {
+      allow read: if isSystem() || isAdmin() || parentInSameFamily(resource.data) || (
+        isChild() && sameFamily(resource.data) && resource.data.childId == uid()
+      );
+
+      // Children can create their own requests only.
+      allow create: if isChild()
+        && writerCanTargetFamily(request.resource.data.familyId)
+        && request.resource.data.childId == uid()
+        && request.resource.data.parentId is string
+        && request.resource.data.points is int
+        && request.resource.data.points > 0
+        && request.resource.data.purpose is string
+        && request.resource.data.status == 'PENDING'
+        && request.resource.data.transactionId is string;
+
+      // Parent can approve or reject once; all request payload fields are immutable.
+      allow update: if (isParent() || isAdmin() || isSystem())
+        && writerCanTargetFamily(resource.data.familyId)
+        && immutableSpendingRequestFields()
+        && spendingStatusTransitionAllowed();
+
+      allow delete: if false;
+    }
+
+    // Task engine
+    match /tasks/{taskId} {
+      allow read: if isAdmin() || isSystem() || parentInSameFamily(resource.data) || (
+        isChild()
+        && sameFamily(resource.data)
+        && resource.data.assignedTo == uid()
+      );
+
+      // Only parent can create tasks in own family.
+      allow create: if isParent()
+        && writerCanTargetFamily(request.resource.data.familyId)
+        && request.resource.data.createdBy == uid()
+        && request.resource.data.points is int
+        && request.resource.data.points > 0
+        && request.resource.data.status in ['DRAFT', 'ASSIGNED']
+        && (
+          request.resource.data.assignedTo == ''
+          || request.resource.data.assignedTo is string
+        );
+
+      allow update: if isAdmin() || isSystem() || (
+        // Parent lifecycle actions and edits in own family.
+        isParent()
+        && parentInSameFamily(resource.data)
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && (
+          // Parent edits or keeps task in DRAFT/ASSIGNED.
+          (
+            resource.data.status in ['DRAFT', 'ASSIGNED', 'REJECTED']
+            && request.resource.data.status in ['DRAFT', 'ASSIGNED']
+          )
+          // Parent final review approval/rejection from COMPLETED with linked submission update.
+          || (
+            resource.data.status == 'COMPLETED'
+            && request.resource.data.status in ['APPROVED', 'REJECTED']
+            && getAfter(/databases/$(database)/documents/task_submissions/$(taskSubmissionDocId(taskId, resource.data.assignedTo))).data.status == request.resource.data.status
+            && getAfter(/databases/$(database)/documents/task_submissions/$(taskSubmissionDocId(taskId, resource.data.assignedTo))).data.reviewedBy == uid()
+          )
+        )
+      ) || (
+        // Child can only mark their assigned task completed with a pending submission in same write batch.
+        isChild()
+        && sameFamily(resource.data)
+        && resource.data.assignedTo == uid()
+        && resource.data.status == 'ASSIGNED'
+        && request.resource.data.status == 'COMPLETED'
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.points == resource.data.points
+        && request.resource.data.assignedTo == resource.data.assignedTo
+        && getAfter(/databases/$(database)/documents/task_submissions/$(taskSubmissionDocId(taskId, uid()))).data.status == 'PENDING'
+        && getAfter(/databases/$(database)/documents/task_submissions/$(taskSubmissionDocId(taskId, uid()))).data.submittedBy == uid()
+      );
+
+      allow delete: if false;
+    }
+
+    match /task_submissions/{submissionId} {
+      allow read: if isAdmin() || isSystem() || parentInSameFamily(resource.data) || (
+        isChild()
+        && sameFamily(resource.data)
+        && resource.data.submittedBy == uid()
+      );
+
+      // Assigned child creates first pending submission.
+      allow create: if isChild()
+        && writerCanTargetFamily(request.resource.data.familyId)
+        && request.resource.data.submittedBy == uid()
+        && request.resource.data.status == 'PENDING'
+        && request.resource.data.taskId is string
+        && request.resource.data.id == submissionId
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.taskId)).data.familyId == request.resource.data.familyId
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.taskId)).data.assignedTo == uid()
+        && get(/databases/$(database)/documents/tasks/$(request.resource.data.taskId)).data.status == 'ASSIGNED';
+
+      allow update: if isAdmin() || isSystem() || (
+        // Child re-submission only after rejection.
+        isChild()
+        && sameFamily(resource.data)
+        && resource.data.submittedBy == uid()
+        && request.resource.data.taskId == resource.data.taskId
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.submittedBy == resource.data.submittedBy
+        && resource.data.status == 'REJECTED'
+        && request.resource.data.status == 'PENDING'
+      ) || (
+        // Parent review pending submission.
+        isParent()
+        && parentInSameFamily(resource.data)
+        && request.resource.data.taskId == resource.data.taskId
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.submittedBy == resource.data.submittedBy
+        && resource.data.status == 'PENDING'
+        && request.resource.data.status in ['APPROVED', 'REJECTED']
+        && request.resource.data.reviewedBy == uid()
+      );
+
+      allow delete: if false;
+    }
+
+    match /invites/{inviteId} {
+      // Parent/admin/system can read family invites.
+      // Child can read only their pending invite by exact code+email queries.
+      allow read: if isSystem() || isAdmin() || parentInSameFamily(resource.data) || (
+        isChild()
+        && resource.data.status in ['pending', 'PENDING']
+        && resource.data.role in ['child', 'CHILD']
+        && request.auth.token.email != null
+        && resource.data.inviteeEmail == request.auth.token.email
+      );
+
+      allow create: if isSystem() || isAdmin() || (
+        isParent()
+        && (
+          request.resource.data.familyId == callerFamilyId()
+          || isFamilyOwner(request.resource.data.familyId)
+        )
+        && request.resource.data.status in ['pending', 'PENDING', 'Pending']
+        && request.resource.data.role in ['child', 'CHILD', 'Child']
+        && request.resource.data.inviteeEmail is string
+      );
+
+      // Invite acceptance: child can only mark own invite as accepted once.
+      allow update: if isSystem() || isAdmin() || (
+        isChild()
+        && request.auth.token.email != null
+        && resource.data.inviteeEmail == request.auth.token.email
+        && resource.data.status in ['pending', 'PENDING']
+        && request.resource.data.status in ['accepted', 'ACCEPTED']
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.code == resource.data.code
+      ) || (
+        // Parent may refresh pending child template details without mutating invite identity.
+        isParent()
+        && parentInSameFamily(resource.data)
+        && resource.data.status in ['pending', 'PENDING', 'Pending']
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.code == resource.data.code
+        && request.resource.data.inviteeEmail == resource.data.inviteeEmail
+        && request.resource.data.invitedBy == resource.data.invitedBy
+        && request.resource.data.status == resource.data.status
+      );
+
+      allow delete: if false;
+    }
+
+    // Immutable point ledger
+    match /point_transactions/{transactionId} {
+      allow read: if isSystem() || isAdmin() || parentInSameFamily(resource.data) || (
+        isChild() && sameFamily(resource.data) && resource.data.userId == uid()
+      );
+
+      // Children cannot create transactions.
+      // Parents can create reward-only records for family members.
+      // System/admin can create any valid transaction type.
+      allow create: if (
+          isParent()
+          && writerCanTargetFamily(request.resource.data.familyId)
+          && request.resource.data.type in ['TASK_REWARD', 'MILESTONE_REWARD']
+          && request.resource.data.createdBy == 'parent'
+        ) || (
+          (isSystem() || isAdmin())
+          && writerCanTargetFamily(request.resource.data.familyId)
+          && request.resource.data.type in ['TASK_REWARD', 'MILESTONE_REWARD', 'SPENDING_DEDUCTION', 'MANUAL_ADJUSTMENT']
+          && request.resource.data.createdBy in ['system', 'admin', 'parent']
+        )
+        && writerCanTargetFamily(request.resource.data.familyId)
+        && request.resource.data.userId is string
+        && request.resource.data.amount is int
+        && request.resource.data.reason is string
+        && request.resource.data.referenceId is string
+        && request.resource.data.status == 'PENDING'
+        && request.resource.data.createdAt == request.time;
+
+      // Only system can finalize transaction status.
+      // amount is immutable after creation.
+      allow update: if isSystem()
+        && writerCanTargetFamily(resource.data.familyId)
+        && immutableTransactionFields()
+        && transactionStatusTransitionAllowed();
+
+      allow delete: if false;
+    }
+
+    // Event-driven notification center.
+    match /notifications/{notificationId} {
+      allow read: if isAdmin() || isSystem() || (
+        resource.data.userId == uid()
+        && sameFamily(resource.data)
+      );
+
+      // Only trusted backend/system can generate notifications.
+      allow create: if (
+          isSystem()
+          && request.resource.data.familyId is string
+          && request.resource.data.userId is string
+          && request.resource.data.type in ['TASK', 'POINT', 'REQUEST', 'FAMILY', 'SYSTEM']
+          && request.resource.data.title is string
+          && request.resource.data.message is string
+          && request.resource.data.read == false
+        ) || (
+          // Child may emit a constrained family join request notification to family owner.
+          isChild()
+          && request.resource.data.familyId is string
+          && request.resource.data.type == 'FAMILY'
+          && request.resource.data.title == 'Member Join Request'
+          && request.resource.data.message == 'A child has requested to join the family.'
+          && request.resource.data.read == false
+          && request.resource.data.userId == get(/databases/$(database)/documents/families/$(request.resource.data.familyId)).data.ownerId
+          && request.resource.data.relatedId == request.resource.data.familyId + '_' + uid()
+          && hasApprovedChildProfileForFamily(request.resource.data.familyId)
+        );
+
+      // Recipient can only mark notification as read.
+      allow update: if resource.data.userId == uid()
+        && sameFamily(resource.data)
+        && immutableNotificationFields()
+        && resource.data.read == false
+        && request.resource.data.read == true;
+
+      allow delete: if false;
+    }
+
+    // Gamification state snapshot (level/xp/streak/badges).
+    match /user_gamification/{gamificationId} {
+      allow read: if signedIn() && (
+        isSystem()
+        || isAdmin()
+        || gamificationId.matches('.*_' + uid())
+        || (resource != null && parentInSameFamily(resource.data))
+      );
+
+      // System/admin only to prevent manual XP, level, or badge assignment from clients.
+      allow create, update: if (isSystem() || isAdmin())
+        && writerCanTargetFamily(request.resource.data.familyId)
+        && request.resource.data.userId is string
+        && request.resource.data.familyId is string
+        && request.resource.data.level is int
+        && request.resource.data.level >= 1
+        && request.resource.data.level <= 100
+        && request.resource.data.xp is int
+        && request.resource.data.totalXp is int
+        && request.resource.data.xpToNextLevel is int
+        && request.resource.data.streak is int
+        && request.resource.data.totalPoints is int
+        && request.resource.data.badges is list
+        && request.resource.data.performanceScore is int
+        && request.resource.data.performanceScore >= 0
+        && request.resource.data.performanceScore <= 100;
+
+      allow delete: if false;
+    }
+
+    // Badge rule catalog.
+    match /badge_definitions/{badgeId} {
+      allow read: if signedIn();
+      allow create, update: if isSystem() || isAdmin();
+      allow delete: if false;
+    }
+
+    // Immutable gamification event ledger.
+    match /xp_transactions/{transactionId} {
+      allow read: if isSystem() || isAdmin() || (
+        sameFamily(resource.data)
+        && (
+          resource.data.userId == uid()
+          || parentInSameFamily(resource.data)
+        )
+      );
+
+      allow create: if (isSystem() || isAdmin())
+        && writerCanTargetFamily(request.resource.data.familyId)
+        && request.resource.data.id == transactionId
+        && request.resource.data.userId is string
+        && request.resource.data.familyId is string
+        && request.resource.data.xpAmount is int
+        && request.resource.data.reason is string
+        && request.resource.data.sourceEvent in ['TASK_APPROVED', 'MILESTONE_COMPLETED', 'DAILY_LOGIN', 'SPENDING_PENALTY']
+        && request.resource.data.eventKey is string;
+
+      allow update: if (isSystem() || isAdmin())
+        && writerCanTargetFamily(resource.data.familyId)
+        && immutableXpTransactionFields();
+
+      allow delete: if false;
+    }
+
+    // Explicit legacy bypass blocks.
+    match /pointEvents/{eventId} {
+      allow read, create, update, delete: if false;
+    }
+
+    match /spendingRequests/{requestId} {
+      allow read, create, update, delete: if false;
+    }
+
+    // Default deny for any unknown collection path.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

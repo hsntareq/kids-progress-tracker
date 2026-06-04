@@ -1,0 +1,22 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Restart Next.js Dev Server",
+			"type": "shell",
+			"command": "bun",
+			"args": [
+				"dev"
+			],
+			"isBackground": true
+		},
+		{
+			"label": "Kill stale Next PID",
+			"type": "shell",
+			"command": "kill",
+			"args": [
+				"94799"
+			]
+		}
+	]
+}
