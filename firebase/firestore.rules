@@ -370,7 +370,7 @@ service cloud.firestore {
       allow read: if isSystem() || isAdmin() || parentInSameFamily(resource.data) || (
         signedIn()
         && callerEmail() != null
-        && (profileId == callerEmail() || (resource != null && resource.data.email == callerEmail()))
+        && resource.data.email == callerEmail()
       );
 
       allow create: if isSystem() || isAdmin() || (
