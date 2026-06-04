@@ -66,22 +66,22 @@ export default function OnboardingPage() {
 
     setLoading(true);
     try {
-      // 1. Create a unique Family ID
       const familyRef = doc(collection(db, "families"));
       const familyId = familyRef.id;
-
-      // 2. Update Parent's User profile FIRST to set familyId so callerFamilyId() evaluates correctly in security rules
       const userRef = doc(db, "users", user.uid);
-      await updateDoc(userRef, {
+
+      // --- Batch 1: Create Family, Parent Membership, and Update Parent's User Profile ---
+      // Committing these in the same batch satisfies the "hasPendingOrActiveMembershipAfter" constraint
+      const batch1 = writeBatch(db);
+
+      // 1. Update Parent's User profile
+      batch1.update(userRef, {
         familyId,
         updatedAt: serverTimestamp()
       });
 
-      // 3. Create batch for the rest of the operations
-      const batch = writeBatch(db);
-      
-      // 4. Write Family document (with inviteCode and settings to satisfy security rules)
-      batch.set(familyRef, {
+      // 2. Write Family document (with inviteCode and settings to satisfy security rules)
+      batch1.set(familyRef, {
         id: familyId,
         familyId: familyId,
         name: familyName.trim(),
@@ -92,10 +92,10 @@ export default function OnboardingPage() {
         updatedAt: serverTimestamp()
       });
 
-      // 5. Write Family Member document for Parent
+      // 3. Write Family Member document for Parent
       const memberDocId = `${familyId}_${user.uid}`;
       const memberRef = doc(db, "family_members", memberDocId);
-      batch.set(memberRef, {
+      batch1.set(memberRef, {
         id: memberDocId,
         familyId,
         userId: user.uid,
@@ -104,10 +104,16 @@ export default function OnboardingPage() {
         createdAt: serverTimestamp()
       });
 
-      // 6. Write Child Profiles for pre-approval
+      await batch1.commit();
+
+      // --- Batch 2: Write Child Profiles for Pre-Approval ---
+      // This is executed after Batch 1 successfully commits, meaning the parent's familyId
+      // is already saved in the database, allowing "callerFamilyId()" to resolve correctly.
+      const batch2 = writeBatch(db);
+
       cleanedChildren.forEach(child => {
         const childProfileRef = doc(db, "child_profiles", child.email);
-        batch.set(childProfileRef, {
+        batch2.set(childProfileRef, {
           email: child.email,
           name: child.name,
           familyId,
@@ -118,16 +124,16 @@ export default function OnboardingPage() {
         });
       });
 
-      // Commit batch with rollback on failure
       try {
-        await batch.commit();
-      } catch (batchErr) {
-        // Rollback parent's familyId update if the batch fails
+        await batch2.commit();
+      } catch (batch2Err) {
+        console.error("Batch 2 child profiles failed. Rolling back batch 1...", batch2Err);
+        // Rollback parent's familyId update so they can try again
         await updateDoc(userRef, {
           familyId: null,
           updatedAt: serverTimestamp()
         });
-        throw batchErr;
+        throw new Error("Failed to register child profiles. Family setup rolled back.");
       }
 
       // Redirect parent to their dashboard
