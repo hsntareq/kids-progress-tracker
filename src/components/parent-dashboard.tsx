@@ -48,7 +48,7 @@ export default function ParentDashboard() {
     (m) => m.familyName.toLowerCase().replace(/\s+/g, "+") === familyParam
   );
   const selectedFamilyId = matchedM?.familyId || null;
-  const familyIdToUse = selectedFamilyId || profile?.familyId || null;
+  const familyIdToUse = activeTab === "overview" ? (profile?.familyId || null) : selectedFamilyId;
 
   const setActiveTab = (tab: "overview" | "families" | "profile") => {
     const params = new URLSearchParams(searchParams.toString());
@@ -623,7 +623,7 @@ export default function ParentDashboard() {
   };
 
   const handleCompleteTask = async (task: Task) => {
-    if (!profile?.familyId || !selectedChild) return;
+    if (!familyIdToUse || !selectedChild) return;
     const selectedChildUser = childUsers.find(u => u.email === selectedChild.email);
     try {
       // 1. Update task to completed
@@ -1315,23 +1315,25 @@ export default function ParentDashboard() {
                     </p>
                   </div>
                 </div>
-                <div>
-                  <button
-                    onClick={() => {
-                      setShowAddForm(!showAddForm);
-                      setAddChildError(null);
-                      setAddChildSuccess(null);
-                    }}
-                    className="ui-button-primary ui-focus px-4 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    {showAddForm ? "Close Form" : (
-                      <>
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Member / Child</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                {selectedFamilyId && (
+                  <div>
+                    <button
+                      onClick={() => {
+                        setShowAddForm(!showAddForm);
+                        setAddChildError(null);
+                        setAddChildSuccess(null);
+                      }}
+                      className="ui-button-primary ui-focus px-4 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      {showAddForm ? "Close Form" : (
+                        <>
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Member / Child</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Add Child Form */}
