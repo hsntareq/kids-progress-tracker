@@ -10,8 +10,9 @@ service cloud.firestore {
     }
 
     function callerUserDoc() {
-      return exists(/databases/$(database)/documents/users/$(uid()))
-        ? get(/databases/$(database)/documents/users/$(uid())).data
+      let userId = uid();
+      return exists(/databases/$(database)/documents/users/$(userId))
+        ? get(/databases/$(database)/documents/users/$(userId)).data
         : {};
     }
 
@@ -52,11 +53,20 @@ service cloud.firestore {
     }
 
     function hasApprovedChildProfileForFamily(familyId) {
-      return callerEmail() != null
-        && exists(/databases/$(database)/documents/child_profiles/$(callerEmail().lower()))
-        && get(/databases/$(database)/documents/child_profiles/$(callerEmail().lower())).data.familyId == familyId
-        && get(/databases/$(database)/documents/child_profiles/$(callerEmail().lower())).data.role in ['child', 'CHILD', 'Child']
-        && get(/databases/$(database)/documents/child_profiles/$(callerEmail().lower())).data.status in ['APPROVED', 'approved', 'Approved', 'CLAIMED', 'claimed', 'Claimed'];
+      let email = callerEmail();
+      let emailLower = email != null ? email.lower() : "";
+      return emailLower != ""
+        && exists(/databases/$(database)/documents/child_profiles/$(emailLower))
+        && get(/databases/$(database)/documents/child_profiles/$(emailLower)).data.familyId == familyId
+        && get(/databases/$(database)/documents/child_profiles/$(emailLower)).data.role in ['child', 'CHILD', 'Child']
+        && get(/databases/$(database)/documents/child_profiles/$(emailLower)).data.status in ['APPROVED', 'approved', 'Approved', 'CLAIMED', 'claimed', 'Claimed'];
+    }
+
+    function getPreApprovedParentId(email) {
+      let emailLower = email != null ? email.lower() : "";
+      return emailLower != "" && exists(/databases/$(database)/documents/child_profiles/$(emailLower))
+        ? get(/databases/$(database)/documents/child_profiles/$(emailLower)).data.parentId
+        : null;
     }
 
     function sameFamily(data) {
@@ -68,11 +78,13 @@ service cloud.firestore {
     }
 
     function memberDoc(familyId, userId) {
-      return get(/databases/$(database)/documents/family_members/$(memberDocId(familyId, userId))).data;
+      let docId = familyId + '_' + userId;
+      return get(/databases/$(database)/documents/family_members/$(docId)).data;
     }
 
     function memberDocExists(familyId, userId) {
-      return exists(/databases/$(database)/documents/family_members/$(memberDocId(familyId, userId)));
+      let docId = familyId + '_' + userId;
+      return exists(/databases/$(database)/documents/family_members/$(docId));
     }
 
     function memberStatus(familyId, userId) {
@@ -102,8 +114,9 @@ service cloud.firestore {
     }
 
     function hasPendingOrActiveMembershipAfter(familyId, userId) {
-      return isPendingStatus(getAfter(/databases/$(database)/documents/family_members/$(memberDocId(familyId, userId))).data.status)
-        || isActiveStatus(getAfter(/databases/$(database)/documents/family_members/$(memberDocId(familyId, userId))).data.status);
+      let docId = familyId + '_' + userId;
+      return isPendingStatus(getAfter(/databases/$(database)/documents/family_members/$(docId)).data.status)
+        || isActiveStatus(getAfter(/databases/$(database)/documents/family_members/$(docId)).data.status);
     }
 
     function isSelf(userId) {
@@ -140,9 +153,10 @@ service cloud.firestore {
     }
 
     function hasValidMembership(familyId, userId, role) {
-      return exists(/databases/$(database)/documents/family_members/$(familyId + '_' + userId))
-        && get(/databases/$(database)/documents/family_members/$(familyId + '_' + userId)).data.role == role
-        && get(/databases/$(database)/documents/family_members/$(familyId + '_' + userId)).data.status in ['ACTIVE', 'active', 'Active'];
+      let docId = familyId + '_' + userId;
+      return exists(/databases/$(database)/documents/family_members/$(docId))
+        && get(/databases/$(database)/documents/family_members/$(docId)).data.role == role
+        && get(/databases/$(database)/documents/family_members/$(docId)).data.status in ['ACTIVE', 'active', 'Active'];
     }
 
     function parentInSameFamily(data) {
@@ -265,7 +279,7 @@ service cloud.firestore {
               )
             )
             // Ensure parentId matches the pre-approved child profile
-            && request.resource.data.parentId == get(/databases/$(database)/documents/child_profiles/$(callerEmail().lower())).data.parentId
+            && request.resource.data.parentId == getPreApprovedParentId(callerEmail())
           )
         )
       ) || (
