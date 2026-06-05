@@ -10,7 +10,9 @@ service cloud.firestore {
     }
 
     function callerUserDoc() {
-      return get(/databases/$(database)/documents/users/$(uid())).data;
+      return exists(/databases/$(database)/documents/users/$(uid()))
+        ? get(/databases/$(database)/documents/users/$(uid())).data
+        : {};
     }
 
     function callerRoles() {
@@ -90,7 +92,8 @@ service cloud.firestore {
     }
 
     function isFamilyOwner(familyId) {
-      return 'ownerId' in get(/databases/$(database)/documents/families/$(familyId)).data
+      return exists(/databases/$(database)/documents/families/$(familyId))
+        && 'ownerId' in get(/databases/$(database)/documents/families/$(familyId)).data
         && get(/databases/$(database)/documents/families/$(familyId)).data.ownerId == uid();
     }
 
