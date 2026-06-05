@@ -84,13 +84,13 @@ export default function OnboardingPage() {
       const familyId = familyRef.id;
       const userRef = doc(db, "users", user.uid);
 
-      // Batch 1: Create Family, Parent Membership, and update Parent's User profile
-      const batch1 = writeBatch(db);
-      batch1.update(userRef, {
+      // Unified Batch: Create Family, Parent Membership, update Parent's User profile, and write Child Profiles
+      const batch = writeBatch(db);
+      batch.update(userRef, {
         familyId,
         updatedAt: serverTimestamp(),
       });
-      batch1.set(familyRef, {
+      batch.set(familyRef, {
         id: familyId,
         familyId,
         name: onboardFamilyName.trim(),
@@ -102,7 +102,7 @@ export default function OnboardingPage() {
       });
 
       const memberDocId = `${familyId}_${user.uid}`;
-      batch1.set(doc(db, "family_members", memberDocId), {
+      batch.set(doc(db, "family_members", memberDocId), {
         id: memberDocId,
         familyId,
         userId: user.uid,
@@ -111,13 +111,9 @@ export default function OnboardingPage() {
         createdAt: serverTimestamp(),
       });
 
-      await batch1.commit();
-
-      // Batch 2: Write Child Profiles for Pre-Approval
-      const batch2 = writeBatch(db);
       cleanedChildren.forEach((child) => {
         const childProfileRef = doc(db, "child_profiles", child.email);
-        batch2.set(childProfileRef, {
+        batch.set(childProfileRef, {
           email: child.email,
           name: child.name,
           familyId,
@@ -128,16 +124,7 @@ export default function OnboardingPage() {
         });
       });
 
-      try {
-        await batch2.commit();
-      } catch (batch2Err) {
-        console.error("Batch 2 child profiles failed, rolling back batch 1...", batch2Err);
-        await updateDoc(userRef, {
-          familyId: null,
-          updatedAt: serverTimestamp(),
-        });
-        throw new Error("Failed to register child profiles. Family setup rolled back.");
-      }
+      await batch.commit();
     } catch (err: unknown) {
       console.error(err);
       const errorVal = err as Error;
@@ -191,8 +178,83 @@ export default function OnboardingPage() {
   }
 
 
+  const handleCreateFamilyInstead = async () => {
+    if (!user || !profile) return;
+    setOnboardSubmitting(true);
+    setOnboardError(null);
+    try {
+      const userRef = doc(db, "users", user.uid);
+      const newRoles = Array.from(new Set([...(profile.role || []), "parent"]));
+      await updateDoc(userRef, {
+        role: newRoles,
+        activeRole: "parent",
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err: unknown) {
+      console.error(err);
+      const errorVal = err as Error;
+      setOnboardError(errorVal.message || "Failed to switch to parent role.");
+    } finally {
+      setOnboardSubmitting(false);
+    }
+  };
+
   // Safe checks: only show content if logged in parent
   if (!user || profile?.activeRole !== "parent") {
+    if (user && profile?.activeRole === "child") {
+      return (
+        <div className="ui-app-bg min-h-screen flex items-center justify-center p-4 md:p-8 relative">
+          <div className="absolute top-6 right-6 z-50 flex items-center gap-3">
+            <button
+              onClick={logout}
+              className="p-2 hover:bg-slate-100/80 rounded-xl focus:outline-none ui-focus transition-all duration-200 cursor-pointer flex items-center justify-center text-slate-700 hover:text-red-600 gap-1.5 font-semibold text-xs border border-slate-200/60 bg-white shadow-sm"
+              title="Logout"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          </div>
+          <main className="ui-panel w-full max-w-md p-6 md:p-8 text-center enter-rise flex flex-col items-center gap-6">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center border border-slate-100/60 shadow-inner">
+              <Mail className="w-8 h-8 text-slate-400" />
+            </div>
+            <div>
+              <h1 className="ui-title text-2xl font-bold text-slate-900">No Invitations Found</h1>
+              <p className="mt-3 text-sm text-slate-600 leading-relaxed">
+                We couldn&apos;t find an active family invitation for <strong className="text-teal-700">{user.email}</strong>. 
+                Please ask your parent to add your email address in their dashboard, or create a family group yourself.
+              </p>
+            </div>
+
+            {onboardError && (
+              <div className="w-full p-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs text-left">
+                {onboardError}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2 w-full">
+              <button
+                onClick={handleCreateFamilyInstead}
+                disabled={onboardSubmitting}
+                className="w-full py-3 text-sm font-semibold rounded-xl text-white bg-teal-600 hover:bg-teal-700 active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                {onboardSubmitting ? (
+                  <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                ) : (
+                  "Create a New Family"
+                )}
+              </button>
+              <button
+                onClick={logout}
+                className="w-full py-3 text-sm font-semibold rounded-xl text-slate-700 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] transition-all cursor-pointer"
+              >
+                Sign Out / Cancel
+              </button>
+            </div>
+          </main>
+        </div>
+      );
+    }
     return null;
   }
 

@@ -141,28 +141,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 await updateDoc(userRef, {
                   role: [targetRole],
                   activeRole: targetRole,
-                  familyId: targetFamilyId || data.familyId || null,
+                  familyId: targetRole === "child" ? null : (data.familyId || null),
                   parentId: targetParentId || data.parentId || null,
                   updatedAt: serverTimestamp(),
                 });
-
-                if (targetRole === "child" && targetFamilyId) {
-                  const memberDocId = `${targetFamilyId}_${firebaseUser.uid}`;
-                  await setDoc(doc(db, "family_members", memberDocId), {
-                    id: memberDocId,
-                    familyId: targetFamilyId,
-                    userId: firebaseUser.uid,
-                    role: "child",
-                    status: "active",
-                    createdAt: serverTimestamp(),
-                  });
-
-                  await updateDoc(childProfileRef, {
-                    status: "CLAIMED",
-                    claimedBy: firebaseUser.uid,
-                    updatedAt: serverTimestamp(),
-                  });
-                }
               } catch (err) {
                 console.error("Self-healing role recovery failed:", err);
                 setProfile({
@@ -334,6 +316,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } else {
       // Authenticated users
+      if (pendingInvite) {
+        // Force onboarding if there is a pending invitation to join a family
+        if (pathname !== "/onboarding") {
+          router.push("/onboarding");
+        }
+        return;
+      }
+
       if (profile) {
         if (profile.activeRole === "parent") {
           if (!profile.familyId) {
@@ -348,18 +338,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }
         } else if (profile.activeRole === "child") {
-          // Child has family context, restrict from onboarding, login, and root pages
-          if (
-            pathname === "/" ||
-            pathname === "/login" ||
-            pathname === "/onboarding"
-          ) {
-            router.push("/dashboard");
+          if (!profile.familyId) {
+            // Child has no family context yet, force onboarding to accept invitation
+            if (pathname !== "/onboarding") {
+              router.push("/onboarding");
+            }
+          } else {
+            // Child has family context, restrict from onboarding, login, and root pages
+            if (
+              pathname === "/" ||
+              pathname === "/login" ||
+              pathname === "/onboarding"
+            ) {
+              router.push("/dashboard");
+            }
           }
         }
       }
     }
-  }, [user, profile, loading, pathname, router, logout]);
+  }, [user, profile, pendingInvite, loading, pathname, router, logout]);
 
   const switchProfile = useCallback(async (role: string, familyId: string | null) => {
     if (!user) return;

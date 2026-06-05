@@ -78,10 +78,27 @@ export async function registerWithEmail(input: RegisterInput) {
       null
     ));
 
+    let finalRole = input.role;
+    let parentId: string | null = null;
+    try {
+      const childProfileRef = doc(db, "child_profiles", emailLower);
+      const childProfileSnap = await getDoc(childProfileRef);
+      if (childProfileSnap.exists()) {
+        const childProfileData = childProfileSnap.data();
+        if (childProfileData.status === "APPROVED") {
+          finalRole = "child";
+          parentId = childProfileData.parentId || null;
+        }
+      }
+    } catch (err) {
+      console.error("registerWithEmail: failed to query child_profiles during registration check", err);
+    }
+
     // Step 2: Update user doc to assign role (transition from null to initial role)
     await updateDoc(userRef, {
-      role: ["parent"],
-      activeRole: "parent",
+      role: [finalRole],
+      activeRole: finalRole,
+      parentId,
       updatedAt: serverTimestamp(),
     });
 
@@ -133,17 +150,48 @@ export async function signInWithGoogle() {
 
   if (!snapshot.exists()) {
     try {
-      console.log("signInWithGoogle: creating new parent user doc...");
-      await setDoc(userRef, baseProfile(user, null, null));
-      console.log("signInWithGoogle: parent user doc created. updating role...");
-      await updateDoc(userRef, {
-        role: ["parent"],
-        activeRole: "parent",
-        updatedAt: serverTimestamp(),
-      });
-      console.log("signInWithGoogle: parent role updated.");
+      const emailLower = user.email?.toLowerCase() ?? "";
+      let isChild = false;
+      let parentId: string | null = null;
+
+      if (emailLower) {
+        console.log("signInWithGoogle: checking child_profiles for", emailLower);
+        const childProfileRef = doc(db, "child_profiles", emailLower);
+        const childProfileSnap = await getDoc(childProfileRef);
+        if (childProfileSnap.exists()) {
+          const childProfileData = childProfileSnap.data();
+          if (childProfileData.status === "APPROVED") {
+            isChild = true;
+            parentId = childProfileData.parentId || null;
+            console.log("signInWithGoogle: found pre-approved child profile. parentId:", parentId);
+          }
+        }
+      }
+
+      if (isChild) {
+        console.log("signInWithGoogle: creating new child user doc...");
+        await setDoc(userRef, baseProfile(user, null, null));
+        console.log("signInWithGoogle: child user doc created. updating role...");
+        await updateDoc(userRef, {
+          role: ["child"],
+          activeRole: "child",
+          parentId: parentId,
+          updatedAt: serverTimestamp(),
+        });
+        console.log("signInWithGoogle: child role updated.");
+      } else {
+        console.log("signInWithGoogle: creating new parent user doc...");
+        await setDoc(userRef, baseProfile(user, null, null));
+        console.log("signInWithGoogle: parent user doc created. updating role...");
+        await updateDoc(userRef, {
+          role: ["parent"],
+          activeRole: "parent",
+          updatedAt: serverTimestamp(),
+        });
+        console.log("signInWithGoogle: parent role updated.");
+      }
     } catch (err) {
-      console.error("signInWithGoogle: error writing parent user doc / role:", err);
+      console.error("signInWithGoogle: error writing user doc / role:", err);
       throw err;
     }
   } else {
