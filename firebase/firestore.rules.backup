@@ -1,0 +1,543 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    function callerUserDoc() {
+      let userId = uid();
+      return exists(/databases/$(database)/documents/users/$(userId))
+        ? get(/databases/$(database)/documents/users/$(userId)).data
+        : {};
+    }
+
+    function callerRoles() {
+      return 'role' in callerUserDoc() ? callerUserDoc().role : [];
+    }
+
+    function callerActiveRole() {
+      return 'activeRole' in callerUserDoc() ? callerUserDoc().activeRole : null;
+    }
+
+    function callerFamilyId() {
+      return 'familyId' in callerUserDoc() ? callerUserDoc().familyId : null;
+    }
+
+    function callerHasNoFamily() {
+      return callerFamilyId() == null || callerFamilyId() == '';
+    }
+
+    function resourceHasNoFamily() {
+      return !('familyId' in resource.data) || resource.data.familyId == null || resource.data.familyId == '';
+    }
+
+    function isAdmin() {
+      return signedIn() && callerActiveRole() in ['admin', 'ADMIN', 'Admin'];
+    }
+
+    function isParent() {
+      return signedIn() && callerActiveRole() in ['parent', 'PARENT', 'Parent'];
+    }
+
+    function isChild() {
+      return signedIn() && callerActiveRole() in ['child', 'CHILD', 'Child'];
+    }
+
+    function callerEmail() {
+      return signedIn() && 'email' in request.auth.token ? request.auth.token.email : null;
+    }
+
+    function hasApprovedChildProfileForFamily(familyId) {
+      let email = callerEmail();
+      let emailLower = email != null ? email.lower() : "";
+      return emailLower != ""
+        && exists(/databases/$(database)/documents/child_profiles/$(emailLower))
+        && get(/databases/$(database)/documents/child_profiles/$(emailLower)).data.familyId == familyId
+        && get(/databases/$(database)/documents/child_profiles/$(emailLower)).data.role in ['child', 'CHILD', 'Child']
+        && get(/databases/$(database)/documents/child_profiles/$(emailLower)).data.status in ['APPROVED', 'approved', 'Approved', 'CLAIMED', 'claimed', 'Claimed'];
+    }
+
+    function getPreApprovedParentId(email) {
+      let emailLower = email != null ? email.lower() : "";
+      return emailLower != "" && exists(/databases/$(database)/documents/child_profiles/$(emailLower))
+        ? get(/databases/$(database)/documents/child_profiles/$(emailLower)).data.parentId
+        : null;
+    }
+
+    function sameFamily(data) {
+      return signedIn() && data != null && data.familyId is string && data.familyId == callerFamilyId();
+    }
+
+    function memberDocId(familyId, userId) {
+      return familyId + '_' + userId;
+    }
+
+    function memberDoc(familyId, userId) {
+      let docId = familyId + '_' + userId;
+      return get(/databases/$(database)/documents/family_members/$(docId)).data;
+    }
+
+    function memberDocExists(familyId, userId) {
+      let docId = familyId + '_' + userId;
+      return exists(/databases/$(database)/documents/family_members/$(docId));
+    }
+
+    function memberStatus(familyId, userId) {
+      return memberDocExists(familyId, userId) ? memberDoc(familyId, userId).status : null;
+    }
+
+    function memberRole(familyId, userId) {
+      return memberDocExists(familyId, userId) ? memberDoc(familyId, userId).role : null;
+    }
+
+    function isActiveStatus(status) {
+      return status in ['ACTIVE', 'active', 'Active'];
+    }
+
+    function isPendingStatus(status) {
+      return status in ['PENDING', 'pending', 'Pending'];
+    }
+
+    function isFamilyOwner(familyId) {
+      return exists(/databases/$(database)/documents/families/$(familyId))
+        && 'ownerId' in get(/databases/$(database)/documents/families/$(familyId)).data
+        && get(/databases/$(database)/documents/families/$(familyId)).data.ownerId == uid();
+    }
+
+    function isFamilyOwnerAfter(familyId) {
+      return 'ownerId' in getAfter(/databases/$(database)/documents/families/$(familyId)).data
+        && getAfter(/databases/$(database)/documents/families/$(familyId)).data.ownerId == uid();
+    }
+
+    function isActiveFamilyMember(familyId, userId) {
+      return isActiveStatus(memberStatus(familyId, userId));
+    }
+
+    function hasPendingOrActiveMembershipAfter(familyId, userId) {
+      let docId = familyId + '_' + userId;
+      return isPendingStatus(getAfter(/databases/$(database)/documents/family_members/$(docId)).data.status)
+        || isActiveStatus(getAfter(/databases/$(database)/documents/family_members/$(docId)).data.status);
+    }
+
+    function isSelf(userId) {
+      return signedIn() && uid() == userId;
+    }
+
+    function roleUnchanged() {
+      return (('role' in resource.data) == ('role' in request.resource.data))
+        && (
+          !('role' in resource.data) 
+          || request.resource.data.role == resource.data.role
+          || (
+            resource.data.role is string
+            && request.resource.data.role is list
+            && request.resource.data.role.size() == 1
+            && request.resource.data.role[0] == resource.data.role
+          )
+        );
+    }
+
+    function familyUnchanged() {
+      return (('familyId' in resource.data) == ('familyId' in request.resource.data))
+        && (!('familyId' in resource.data) || request.resource.data.familyId == resource.data.familyId);
+    }
+
+    function pointsUnchanged() {
+      return (('points' in resource.data) == ('points' in request.resource.data))
+        && (!('points' in resource.data) || request.resource.data.points == resource.data.points);
+    }
+
+    function activeRoleUnchanged() {
+      return (('activeRole' in resource.data) == ('activeRole' in request.resource.data))
+        && (!('activeRole' in resource.data) || request.resource.data.activeRole == resource.data.activeRole);
+    }
+
+    function hasValidMembership(familyId, userId, role) {
+      let docId = familyId + '_' + userId;
+      return exists(/databases/$(database)/documents/family_members/$(docId))
+        && get(/databases/$(database)/documents/family_members/$(docId)).data.role == role
+        && get(/databases/$(database)/documents/family_members/$(docId)).data.status in ['ACTIVE', 'active', 'Active'];
+    }
+
+    function parentInSameFamily(data) {
+      return isParent()
+        && data != null
+        && (
+          sameFamily(data)
+          || (
+            isActiveFamilyMember(data.familyId, uid())
+            && memberRole(data.familyId, uid()) in ['PARENT', 'parent', 'Parent']
+          )
+          || isFamilyOwner(data.familyId)
+        );
+    }
+
+    // Families
+    match /families/{familyId} {
+      allow read: if isAdmin()
+        || (signedIn() && callerHasNoFamily())
+        || (signedIn() && familyId == callerFamilyId())
+        || (
+          // Allow read if user has an active or pending membership in this family
+          signedIn()
+          && (
+            isActiveStatus(memberStatus(familyId, uid()))
+            || isPendingStatus(memberStatus(familyId, uid()))
+          )
+        );
+
+      // Parent owner creates family.
+      allow create: if isParent()
+        && request.resource.data.id == familyId
+        && request.resource.data.familyId == familyId
+        && request.resource.data.ownerId == uid()
+        && request.resource.data.inviteCode is string
+        && request.resource.data.settings is map;
+
+      // Only family owner parent can update settings.
+      allow update: if isAdmin() || (
+        isParent()
+        && familyId == callerFamilyId()
+        && resource.data.ownerId == uid()
+        && request.resource.data.ownerId == resource.data.ownerId
+      );
+
+      allow delete: if false;
+    }
+
+    // Users
+    match /users/{userId} {
+      // Users can read any profile if signed in (required for username uniqueness checks).
+      allow read: if signedIn();
+
+      allow create: if isSelf(userId)
+        && request.resource.data.id == userId
+        && (!('role' in request.resource.data) || request.resource.data.role == null)
+        && (request.resource.data.familyId == null || request.resource.data.familyId is string);
+
+      // Own profile update without privilege escalation or point tampering.
+      allow update: if isAdmin() || (
+        isSelf(userId)
+        && (
+          pointsUnchanged()
+          || (
+            'role' in resource.data
+            && (
+              resource.data.role is list 
+                ? resource.data.role.hasAny(['child', 'CHILD', 'Child'])
+                : resource.data.role in ['child', 'CHILD', 'Child']
+            )
+            && request.resource.data.points is number
+          )
+        )
+        && (
+          // 1. Initial role assignment (transitioning from null activeRole and null role)
+          (
+            (!('activeRole' in resource.data) || resource.data.activeRole == null)
+            && (resource.data.role == null || !('role' in resource.data))
+            && request.resource.data.activeRole in ['PARENT', 'parent', 'Parent', 'CHILD', 'child', 'Child']
+            && request.resource.data.role is list
+            && request.resource.data.role[0] == request.resource.data.activeRole
+            && request.resource.data.role.size() == 1
+          )
+          // 2. Normal updates where role is unchanged
+          || (
+            roleUnchanged()
+            && (
+              // 2a. activeRole and family are unchanged
+              (
+                activeRoleUnchanged()
+                && familyUnchanged()
+              )
+              // 2b. Or switching activeRole and familyId to an authorized membership
+              || (
+                request.resource.data.familyId is string
+                && request.resource.data.activeRole is string
+                && (
+                  hasValidMembership(request.resource.data.familyId, userId, request.resource.data.activeRole)
+                  || (
+                    exists(/databases/$(database)/documents/families/$(request.resource.data.familyId))
+                      ? get(/databases/$(database)/documents/families/$(request.resource.data.familyId)).data.ownerId == uid()
+                      : getAfter(/databases/$(database)/documents/families/$(request.resource.data.familyId)).data.ownerId == uid()
+                  )
+                )
+              )
+              // 2c. Or switching back to 'admin' (if 'admin' is in their role list)
+              || (
+                request.resource.data.activeRole in ['admin', 'ADMIN', 'Admin']
+                && request.resource.data.activeRole in resource.data.role
+              )
+            )
+          )
+          // 3. User claiming a child invitation (adding 'child' to their roles and setting family details)
+          || (
+            request.resource.data.activeRole in ['CHILD', 'child', 'Child']
+            && request.resource.data.familyId is string
+            && hasApprovedChildProfileForFamily(request.resource.data.familyId)
+            // Ensure the new role list adds 'child' to their existing roles
+            && request.resource.data.role is list
+            && request.resource.data.role.hasAny(['child', 'CHILD', 'Child'])
+            && (
+              (
+                !('role' in resource.data)
+                && request.resource.data.role.size() == 1
+              ) || (
+                'role' in resource.data
+                && (
+                  (
+                    resource.data.role is list
+                    && request.resource.data.role.hasAll(resource.data.role)
+                    && request.resource.data.role.size() == resource.data.role.size() + 1
+                  ) || (
+                    resource.data.role is string
+                    && request.resource.data.role.hasAll([resource.data.role])
+                    && request.resource.data.role.size() == 2
+                  )
+                )
+              )
+            )
+            // Ensure parentId matches the pre-approved child profile
+            && request.resource.data.parentId == getPreApprovedParentId(callerEmail())
+          )
+        )
+      ) || (
+        // Parent can manage child profile inside same family, but cannot alter role/family.
+        isParent()
+        && (
+          sameFamily(resource.data)
+          || (
+            resourceHasNoFamily()
+            && request.resource.data.familyId == callerFamilyId()
+          )
+        )
+        && resource.data.role.hasAny(['child', 'CHILD', 'Child'])
+        && (
+          // 1. Normal parent update (cannot change role, family, but can change points and behaviorStatus)
+          (
+            roleUnchanged()
+            && (
+              familyUnchanged()
+              || (
+                resourceHasNoFamily()
+                && request.resource.data.familyId == callerFamilyId()
+              )
+            )
+            && (
+              !('points' in request.resource.data)
+              || request.resource.data.points is number
+            )
+            && (
+              !('behaviorStatus' in request.resource.data)
+              || request.resource.data.behaviorStatus in [null, 'excellent', 'good', 'average', 'needs_improvement']
+            )
+          )
+          // 2. Or parent removing the child from the household (converting to default parent profile)
+          || (
+            request.resource.data.familyId == null
+            && request.resource.data.parentId == null
+            && request.resource.data.activeRole in ['PARENT', 'parent', 'Parent']
+            && request.resource.data.role is list
+            && request.resource.data.role.size() == 1
+            && request.resource.data.role[0] == request.resource.data.activeRole
+            && request.resource.data.points == 0
+          )
+        )
+      );
+
+      allow delete: if false;
+    }
+
+    // Family members relationship collection.
+    match /family_members/{memberId} {
+      allow read: if isAdmin() || (
+        resource != null && resource.data.userId == uid()
+      ) || (
+        signedIn() && memberId.matches('.*' + uid() + '$')
+      ) || (
+        resource != null && parentInSameFamily(resource.data)
+      );
+
+      // Child creates own pending join request. Parent owner may create active parent membership.
+      allow create: if isAdmin() || (
+        isChild()
+        && request.resource.data.userId == uid()
+        && request.resource.data.role in ['CHILD', 'child']
+        && request.resource.data.status in ['PENDING', 'pending']
+        && request.resource.data.familyId is string
+        && request.resource.data.id == memberId
+      ) || (
+        // Child can auto-activate membership when parent pre-approved profile exists for caller email.
+        isChild()
+        && request.resource.data.userId == uid()
+        && request.resource.data.role in ['CHILD', 'child', 'Child']
+        && request.resource.data.status in ['ACTIVE', 'active', 'Active']
+        && request.resource.data.familyId is string
+        && request.resource.data.id == memberId
+        && hasApprovedChildProfileForFamily(request.resource.data.familyId)
+      ) || (
+        isParent()
+        && request.resource.data.userId == uid()
+        && request.resource.data.role in ['PARENT', 'parent']
+        && request.resource.data.status in ['ACTIVE', 'active']
+        && request.resource.data.familyId is string
+        && (
+          request.resource.data.familyId == callerFamilyId()
+          || (
+            callerHasNoFamily()
+            && getAfter(/databases/$(database)/documents/families/$(request.resource.data.familyId)).data.ownerId == uid()
+          )
+        )
+        && request.resource.data.id == memberId
+      );
+
+      // Owner parent can approve/remove members. No arbitrary role changes.
+      allow update: if isAdmin() || (
+        isParent()
+        && resource.data.familyId == callerFamilyId()
+        && get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.ownerId == uid()
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.role == resource.data.role
+        && (
+          (
+            resource.data.status in ['PENDING', 'pending']
+            && request.resource.data.status in ['ACTIVE', 'active', 'REMOVED', 'removed']
+          )
+          || (
+            resource.data.status in ['ACTIVE', 'active']
+            && request.resource.data.status in ['REMOVED', 'removed']
+          )
+        )
+      );
+
+      allow delete: if isAdmin() || (
+        isParent()
+        && resource.data.familyId == callerFamilyId()
+        && get(/databases/$(database)/documents/families/$(resource.data.familyId)).data.ownerId == uid()
+      );
+    }
+
+    // Parent-approved child profiles (no invite flow).
+    match /child_profiles/{profileId} {
+      allow read: if isAdmin() || (
+        signedIn()
+        && (
+          (callerEmail() != null && profileId == callerEmail().lower())
+          || (isParent() && (resource == null || parentInSameFamily(resource.data)))
+        )
+      );
+
+      allow create: if isAdmin() || (
+        isParent()
+        && (
+          isFamilyOwner(request.resource.data.familyId)
+          || isFamilyOwnerAfter(request.resource.data.familyId)
+        )
+        && request.resource.data.email is string
+        && request.resource.data.role in ['child', 'CHILD', 'Child']
+        && request.resource.data.status in ['APPROVED', 'approved', 'Approved']
+      );
+
+      allow update: if isAdmin() || (
+        isParent()
+        && parentInSameFamily(resource.data)
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role
+      ) || (
+        signedIn()
+        && callerEmail() != null
+        && resource.data.email == callerEmail().lower()
+        && resource.data.status in ['APPROVED', 'approved', 'Approved']
+        && (
+          (
+            request.resource.data.status in ['CLAIMED', 'claimed', 'Claimed']
+            && request.resource.data.claimedBy == uid()
+          ) || (
+            request.resource.data.status in ['REJECTED', 'rejected', 'Rejected']
+          )
+        )
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.familyId == resource.data.familyId
+        && request.resource.data.role == resource.data.role
+      );
+
+      allow delete: if isAdmin() || (
+        isParent()
+        && parentInSameFamily(resource.data)
+      );
+    }
+
+    // Tasks
+    match /tasks/{taskId} {
+      allow read: if signedIn() 
+        && (
+          resource == null 
+          || resource.data.familyId == callerFamilyId()
+          || isActiveFamilyMember(resource.data.familyId, uid())
+        );
+
+      allow create: if signedIn()
+        && request.resource.data.id == taskId
+        && (
+          request.resource.data.familyId == callerFamilyId()
+          || isActiveFamilyMember(request.resource.data.familyId, uid())
+        )
+        && request.resource.data.points is number
+        && request.resource.data.points > 0
+        && (
+          // Created by parent
+          (
+            isParent()
+            && request.resource.data.requestedBy == 'parent'
+            && request.resource.data.status == 'ACTIVE'
+          )
+          // Created by child
+          || (
+            isChild()
+            && request.resource.data.requestedBy == 'child'
+            && request.resource.data.status == 'PENDING_APPROVAL'
+            && request.resource.data.childEmail == callerEmail().lower()
+          )
+        );
+
+      allow update: if signedIn()
+        && (
+          resource.data.familyId == callerFamilyId()
+          || isActiveFamilyMember(resource.data.familyId, uid())
+        )
+        && (
+          isParent()
+          || (
+            isChild()
+            && resource.data.childEmail == callerEmail().lower()
+            && resource.data.status == 'ACTIVE'
+            && request.resource.data.status == 'COMPLETED'
+            && request.resource.data.title == resource.data.title
+            && request.resource.data.points == resource.data.points
+            && request.resource.data.familyId == resource.data.familyId
+            && request.resource.data.childEmail == resource.data.childEmail
+            && request.resource.data.requestedBy == resource.data.requestedBy
+          )
+        );
+
+      allow delete: if isAdmin() || (
+        isParent()
+        && (
+          resource.data.familyId == callerFamilyId()
+          || isActiveFamilyMember(resource.data.familyId, uid())
+        )
+      );
+    }
+
+    // Default deny for any unknown collection path.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
