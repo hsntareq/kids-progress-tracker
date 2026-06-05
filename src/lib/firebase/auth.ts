@@ -59,16 +59,6 @@ export async function registerWithEmail(input: RegisterInput) {
   const userUid = credentials.user.uid;
 
   try {
-    if (input.role === "child") {
-      const profileRef = doc(db, "child_profiles", emailLower);
-      const profileSnap = await getDoc(profileRef);
-
-      if (!profileSnap.exists()) {
-        throw new Error(
-          "This email has not been pre-registered by a parent. Please ask your parent to add your account first."
-        );
-      }
-    }
 
     // Update Auth Profile DisplayName
     if (input.displayName.trim()) {

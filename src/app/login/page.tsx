@@ -161,8 +161,8 @@ export default function LoginPage() {
                 </button>
               </div>
               {authRole === "child" && (
-                <p className="text-xs text-amber-600 font-semibold leading-relaxed mt-1 animate-pulse">
-                  ⚠️ Note: Children can only sign up if their parent has already added their email to the family.
+                <p className="text-xs text-teal-600 font-semibold leading-relaxed mt-1">
+                  ✨ Note: If you have an invitation, you can accept it on the next screen. Otherwise, you can set up a new family group.
                 </p>
               )}
             </div>
