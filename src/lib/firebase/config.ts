@@ -28,6 +28,9 @@ const appConfig = isConfigValid ? firebaseConfig : {
 };
 
 const app = getApps().length ? getApp() : initializeApp(appConfig);
+if (typeof window !== "undefined") {
+  console.log("Firebase initialized with project ID:", appConfig.projectId);
+}
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
