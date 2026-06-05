@@ -49,8 +49,7 @@ service cloud.firestore {
     }
 
     function callerEmail() {
-      let userDoc = callerUserDoc();
-      return signedIn() && 'email' in userDoc ? userDoc.email : null;
+      return signedIn() && 'email' in request.auth.token ? request.auth.token.email : null;
     }
 
     function hasApprovedChildProfileForFamily(familyId) {
