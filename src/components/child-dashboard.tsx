@@ -60,9 +60,9 @@ export default function ChildDashboard() {
   }
 
   const themeGradients = {
-    teal: "from-teal-600 via-teal-700 to-cyan-800",
-    purple: "from-purple-600 via-indigo-700 to-violet-800",
-    amber: "from-amber-500 via-orange-600 to-red-700",
+    teal: "linear-gradient(to bottom right, #0d9488, #0f766e, #155e75)",
+    purple: "linear-gradient(to bottom right, #9333ea, #4f46e5, #5b21b6)",
+    amber: "linear-gradient(to bottom right, #f59e0b, #ea580c, #b91c1c)",
   };
 
   return (
@@ -198,7 +198,7 @@ export default function ChildDashboard() {
       {/* Main Content Area */}
       <main className="flex-1 p-4 md:p-8 max-w-4xl w-full mx-auto space-y-6 md:space-y-8 overflow-y-auto">
         {/* Desktop Topbar */}
-        <div className="hidden md:flex justify-end items-center gap-4 border-b border-slate-100/60 pb-4 mb-2">
+        <div className="hidden md:flex justify-end items-center gap-4 pb-4 mb-2">
           <NotificationCenter />
         </div>
         {/* Dynamic Tab Render */}
@@ -206,7 +206,8 @@ export default function ChildDashboard() {
           <div className="space-y-6 md:space-y-8 enter-rise">
             {/* Points Card */}
             <section
-              className={`ui-panel p-8 text-center bg-gradient-to-br ${themeGradients[childTheme]} text-white border-none shadow-xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-500`}
+              className="ui-panel p-8 text-center text-white shadow-xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-500"
+              style={{ background: themeGradients[childTheme], border: "none" }}
             >
               <div className="absolute w-64 h-64 bg-white/5 rounded-full -top-12 -left-12 pointer-events-none"></div>
               <div className="absolute w-80 h-80 bg-white/5 rounded-full -bottom-16 -right-16 pointer-events-none"></div>
