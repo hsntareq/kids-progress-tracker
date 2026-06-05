@@ -38,7 +38,6 @@ export default function LoginPage() {
         });
       }
     } catch (err: unknown) {
-      console.error(err);
       const errorVal = err as Error;
       let message = errorVal.message || "An unexpected error occurred.";
       if (message.includes("auth/invalid-credential")) {
