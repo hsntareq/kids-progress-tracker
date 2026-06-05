@@ -19,7 +19,7 @@ interface ChildInput {
 }
 
 export default function OnboardingPage() {
-  const { user, profile, logout, pendingInvite, acceptChildInvite, rejectChildInvite, hasChildProfile } = useAuth();
+  const { user, profile, logout, pendingInvite, acceptChildInvite, rejectChildInvite } = useAuth();
   const [onboardFamilyName, setOnboardFamilyName] = useState("");
   const [onboardChildren, setOnboardChildren] = useState<ChildInput[]>([
     { name: "", email: "" },
@@ -190,40 +190,6 @@ export default function OnboardingPage() {
     );
   }
 
-  // If this user is a kid (pre-approved child profile exists), but no pending invite (e.g. they declined or invite is inactive)
-  if (hasChildProfile) {
-    return (
-      <div className="ui-app-bg min-h-screen flex items-center justify-center p-4 md:p-8 relative">
-        <div className="absolute top-6 right-6 z-50 flex items-center gap-3">
-          <button
-            onClick={logout}
-            className="p-2 hover:bg-slate-100/80 rounded-xl focus:outline-none ui-focus transition-all duration-200 cursor-pointer flex items-center justify-center text-slate-700 hover:text-red-600 gap-1.5 font-semibold text-xs border border-slate-200/60 bg-white shadow-sm"
-            title="Logout"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Logout</span>
-          </button>
-        </div>
-        <main className="ui-panel w-full max-w-md p-6 md:p-8 text-center enter-rise flex flex-col items-center gap-6">
-          <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center border border-rose-100/60 shadow-inner">
-            <Mail className="w-8 h-8 text-rose-600" />
-          </div>
-          <div>
-            <h1 className="ui-title text-2xl font-bold text-slate-900">No Active Invitation</h1>
-            <p className="mt-3 text-sm text-slate-600 leading-relaxed">
-              You do not have any active family invitations. If you declined the invitation by mistake, please ask your parent to resend it from their dashboard.
-            </p>
-          </div>
-          <button
-            onClick={logout}
-            className="w-full py-3 text-sm font-semibold rounded-xl text-white bg-slate-700 hover:bg-slate-800 active:scale-[0.98] transition-all shadow-md cursor-pointer"
-          >
-            Log Out
-          </button>
-        </main>
-      </div>
-    );
-  }
 
   // Safe checks: only show content if logged in parent
   if (!user || profile?.activeRole !== "parent") {
