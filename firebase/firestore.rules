@@ -380,10 +380,12 @@ service cloud.firestore {
 
     // Parent-approved child profiles (no invite flow).
     match /child_profiles/{profileId} {
-      allow read: if isAdmin() || resource == null || (resource != null && parentInSameFamily(resource.data)) || (
+      allow read: if isAdmin() || (
         signedIn()
-        && callerEmail() != null
-        && profileId == callerEmail().lower()
+        && (
+          (callerEmail() != null && profileId == callerEmail().lower())
+          || (resource != null && parentInSameFamily(resource.data))
+        )
       );
 
       allow create: if isAdmin() || (
