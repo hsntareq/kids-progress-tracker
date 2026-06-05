@@ -55,6 +55,7 @@ export default function ParentDashboard() {
   const [addChildSubmitting, setAddChildSubmitting] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedChild, setSelectedChild] = useState<ChildProfile | null>(null);
 
   const dashboardLoading = !!profile?.familyId && (!family || !childrenLoaded);
 
@@ -583,7 +584,8 @@ export default function ParentDashboard() {
                 children.map((child, idx) => (
                   <div
                     key={idx}
-                    className="ui-panel p-5 flex items-center justify-between hover:shadow-md transition-shadow bg-white"
+                    onClick={() => setSelectedChild(child)}
+                    className="ui-panel p-5 flex items-center justify-between hover:shadow-lg transition-all duration-200 bg-white cursor-pointer hover:border-teal-300 hover:scale-[1.01] shadow-sm hover:shadow-teal-100/40"
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-teal-50 border border-teal-100 text-teal-700 font-bold rounded-2xl flex items-center justify-center text-xl">
@@ -609,7 +611,10 @@ export default function ParentDashboard() {
                         </span>
                         {child.status === "REJECTED" && (
                           <button
-                            onClick={() => handleResendInvite(child)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleResendInvite(child);
+                            }}
                             className="text-slate-500 hover:text-teal-600 hover:bg-teal-50 border border-slate-200 hover:border-teal-200 rounded-lg p-1.5 transition-all cursor-pointer flex items-center justify-center gap-1 text-[10px] font-bold"
                             title="Resend Invite"
                           >
@@ -618,7 +623,10 @@ export default function ParentDashboard() {
                           </button>
                         )}
                         <button
-                          onClick={() => handleRemoveChild(child)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveChild(child);
+                          }}
                           className="text-slate-400 hover:text-red-500 transition-colors p-1 cursor-pointer"
                           title="Remove Child"
                         >
@@ -700,6 +708,91 @@ export default function ParentDashboard() {
           </div>
         )}
       </main>
+
+      {/* Kid Detail View Modal */}
+      {selectedChild && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 enter-fade">
+          <div className="bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-2xl max-w-md w-full shadow-2xl p-6 relative enter-rise flex flex-col gap-6">
+            <button
+              onClick={() => setSelectedChild(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer text-sm font-bold w-7 h-7 flex items-center justify-center"
+            >
+              ✕
+            </button>
+
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-20 h-20 bg-teal-50 border border-teal-100 text-teal-700 font-extrabold rounded-3xl flex items-center justify-center text-3xl shadow-inner">
+                {selectedChild.name[0]?.toUpperCase() || "C"}
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 ui-title">{selectedChild.name}</h3>
+                <p className="text-sm text-slate-500 mt-0.5">{selectedChild.email}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 border-y border-slate-100 py-4">
+              <div className="flex flex-col gap-1 text-center border-r border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Invite Status
+                </span>
+                <span
+                  className={`text-xs font-bold mt-1 inline-block mx-auto px-2.5 py-0.5 rounded-full ${
+                    selectedChild.status === "CLAIMED"
+                      ? "bg-green-50 text-green-700 border border-green-200"
+                      : selectedChild.status === "REJECTED"
+                      ? "bg-rose-50 text-rose-700 border border-rose-200"
+                      : "bg-amber-50 text-amber-700 border border-amber-200"
+                  }`}
+                >
+                  {selectedChild.status === "CLAIMED" ? "Active" : selectedChild.status === "REJECTED" ? "Declined" : "Invited"}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1 text-center">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Stars Balance
+                </span>
+                <div className="text-lg font-bold text-amber-600 flex items-center justify-center gap-1 mt-0.5">
+                  <Star className="w-4 h-4 fill-amber-500 text-amber-500" />
+                  <span>{childUsers.find((u) => u.email === selectedChild.email)?.points || 0} pts</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {selectedChild.status === "REJECTED" && (
+                <button
+                  onClick={async () => {
+                    await handleResendInvite(selectedChild);
+                    setSelectedChild({ ...selectedChild, status: "APPROVED" });
+                  }}
+                  className="w-full py-3 text-xs font-bold rounded-xl border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-800 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Resend Family Invitation</span>
+                </button>
+              )}
+
+              <button
+                onClick={async () => {
+                  await handleRemoveChild(selectedChild);
+                  setSelectedChild(null);
+                }}
+                className="w-full py-3 text-xs font-bold rounded-xl border border-red-100 hover:border-red-200 bg-red-50 hover:bg-red-100 text-red-700 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Remove from Household</span>
+              </button>
+
+              <button
+                onClick={() => setSelectedChild(null)}
+                className="w-full py-3 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer"
+              >
+                Close View
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
