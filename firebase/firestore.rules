@@ -384,7 +384,7 @@ service cloud.firestore {
         signedIn()
         && (
           (callerEmail() != null && profileId == callerEmail().lower())
-          || (resource != null && parentInSameFamily(resource.data))
+          || (isParent() && (resource == null || parentInSameFamily(resource.data)))
         )
       );
 
