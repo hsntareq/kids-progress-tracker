@@ -987,10 +987,13 @@ export default function ParentDashboard() {
 
                   <button
                     onClick={async () => {
-                      await handleRemoveChild(selectedChild);
+                      const childToRemove = selectedChild;
+                      if (!childToRemove) return;
+                      // Navigate back to family detail view first to avoid race conditions
                       const params = new URLSearchParams(searchParams.toString());
                       params.delete("kid");
                       router.push(`/dashboard?${params.toString()}`);
+                      await handleRemoveChild(childToRemove);
                     }}
                     className="px-4 py-2 text-xs font-bold rounded-xl border border-red-100 hover:border-red-200 bg-red-50 hover:bg-red-100 text-red-700 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                   >
