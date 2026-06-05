@@ -328,15 +328,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             router.push("/dashboard");
           }
         }
-      } else {
-        // Authenticated but no profile (profile is null).
-        // This is an inconsistent state (e.g., database was reset).
-        // If they are on a protected page, sign them out to clear the stale session.
-        if (!isPublicPath) {
-          setTimeout(() => {
-            logout();
-          }, 0);
-        }
       }
     }
   }, [user, profile, loading, pathname, router, logout]);
@@ -439,6 +430,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const showProfileSync = user && !profile && !loading;
+
   return (
     <AuthContext.Provider value={{ user, profile, loading, logout, showToast, memberships: fullMemberships, switchProfile, pendingInvite, acceptChildInvite, rejectChildInvite }}>
       {loading ? (
@@ -446,6 +439,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           <div className="text-center animate-pulse">
             <div className="w-12 h-12 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
             <p className="mt-4 text-slate-700 font-medium">Loading Family Quest...</p>
+          </div>
+        </div>
+      ) : showProfileSync ? (
+        <div className="ui-app-bg min-h-screen flex items-center justify-center p-4">
+          <div className="text-center max-w-sm w-full ui-panel p-8 enter-rise flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <h3 className="text-lg font-bold text-slate-800 ui-title">Setting up your profile...</h3>
+            <p className="text-xs text-slate-500 leading-normal">
+              We are synchronizing your account with our database. This should only take a moment.
+            </p>
+            <button
+              onClick={logout}
+              className="mt-2 ui-button-secondary py-2.5 text-xs font-bold w-full cursor-pointer"
+            >
+              Sign Out / Cancel
+            </button>
           </div>
         </div>
       ) : (
