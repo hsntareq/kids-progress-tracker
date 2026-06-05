@@ -19,6 +19,7 @@ interface AuthContextType {
   pendingInvite: { familyId: string; familyName: string; parentId: string } | null;
   acceptChildInvite: () => Promise<void>;
   rejectChildInvite: () => Promise<void>;
+  hasChildProfile: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -32,15 +33,24 @@ const AuthContext = createContext<AuthContextType>({
   pendingInvite: null,
   acceptChildInvite: async () => {},
   rejectChildInvite: async () => {},
+  hasChildProfile: false,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AppUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authInitialized, setAuthInitialized] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
   const [memberships, setMemberships] = useState<{ familyId: string | null; familyName: string; role: string }[]>([]);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   const [pendingInvite, setPendingInvite] = useState<{ familyId: string; familyName: string; parentId: string } | null>(null);
+  const [hasChildProfile, setHasChildProfile] = useState<boolean>(false);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [inviteLoaded, setInviteLoaded] = useState(false);
+  const [membershipsLoaded, setMembershipsLoaded] = useState(false);
+
+  // Derived overall loading status when all three snapshots have fired at least once
+  const loading = transitioning || !authInitialized || (!!user && !(profileLoaded && inviteLoaded && membershipsLoaded));
 
   const showToast = useCallback((message: string, type: "success" | "error" | "info" = "success") => {
     setToast({ message, type });
@@ -56,6 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
+      setAuthInitialized(true);
       
       // Clean up previous subscriptions if they exist
       if (unsubscribeProfile) {
@@ -75,9 +86,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfile(null);
         setMemberships([]);
         setPendingInvite(null);
-        setLoading(false);
+        setHasChildProfile(false);
+        setProfileLoaded(false);
+        setInviteLoaded(false);
+        setMembershipsLoaded(false);
+        setTransitioning(false);
         return;
       }
+
+      setProfileLoaded(false);
+      setInviteLoaded(false);
+      setMembershipsLoaded(false);
 
       // If user is authenticated, subscribe to their user document in Firestore
       const userRef = doc(db, "users", firebaseUser.uid);
@@ -151,7 +170,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   role: ["parent"],
                   activeRole: "parent",
                 } as AppUser);
-                setLoading(false);
+                setProfileLoaded(true);
               }
               return;
             }
@@ -175,20 +194,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   role: roles,
                   activeRole,
                 } as AppUser);
-                setLoading(false);
+                setProfileLoaded(true);
               });
             } else {
               setProfile(data as AppUser);
-              setLoading(false);
+              setProfileLoaded(true);
             }
           } else {
             setProfile(null);
-            setLoading(false);
+            setProfileLoaded(true);
           }
         },
         (error) => {
           console.error("Error listening to user profile:", error);
-          setLoading(false);
+          setProfileLoaded(true);
         }
       );
 
@@ -226,9 +245,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           );
           
           setMemberships(resolvedMemberships);
+          setMembershipsLoaded(true);
         },
         (err) => {
           console.error("Error listening to memberships:", err);
+          setMembershipsLoaded(true);
         }
       );
 
@@ -238,30 +259,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unsubscribeInvite = onSnapshot(
         childProfileRef,
         async (docSnap) => {
-          if (docSnap.exists() && docSnap.data().status === "APPROVED") {
+          if (docSnap.exists()) {
             const inviteData = docSnap.data();
-            try {
-              const familySnap = await getDoc(doc(db, "families", inviteData.familyId));
-              const familyName = familySnap.exists() ? (familySnap.data().name as string) : "Unknown Family";
-              setPendingInvite({
-                familyId: inviteData.familyId,
-                familyName,
-                parentId: inviteData.parentId,
-              });
-            } catch (err) {
-              console.error("Error loading family for invite:", err);
-              setPendingInvite({
-                familyId: inviteData.familyId,
-                familyName: "Family Group",
-                parentId: inviteData.parentId,
-              });
+            setHasChildProfile(true);
+            if (inviteData.status === "APPROVED") {
+              try {
+                const familySnap = await getDoc(doc(db, "families", inviteData.familyId));
+                const familyName = familySnap.exists() ? (familySnap.data().name as string) : "Unknown Family";
+                setPendingInvite({
+                  familyId: inviteData.familyId,
+                  familyName,
+                  parentId: inviteData.parentId,
+                });
+              } catch (err) {
+                console.error("Error loading family for invite:", err);
+                setPendingInvite({
+                  familyId: inviteData.familyId,
+                  familyName: "Family Group",
+                  parentId: inviteData.parentId,
+                });
+              }
+            } else {
+              setPendingInvite(null);
             }
           } else {
+            setHasChildProfile(false);
             setPendingInvite(null);
           }
+          setInviteLoaded(true);
         },
         (err) => {
           console.error("Error listening to child profile invite:", err);
+          setInviteLoaded(true);
         }
       );
     });
@@ -281,14 +310,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    setLoading(true);
+    setTransitioning(true);
     try {
       await firebaseLogout();
       router.push("/login");
     } catch (error) {
       console.error("Error signing out:", error);
     } finally {
-      setLoading(false);
+      setTransitioning(false);
     }
   }, [router]);
 
@@ -334,7 +363,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const switchProfile = useCallback(async (role: string, familyId: string | null) => {
     if (!user) return;
-    setLoading(true);
+    setTransitioning(true);
     try {
       await switchActiveProfile(user.uid, role, familyId);
       showToast(`Switched role to: ${role === "admin" ? "Admin" : role === "parent" ? "Parent" : "Kid"}`, "success");
@@ -343,13 +372,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Failed to switch active profile:", err);
       showToast("Switch failed: insufficient permissions.", "error");
     } finally {
-      setLoading(false);
+      setTransitioning(false);
     }
   }, [user, router, showToast]);
 
   const acceptChildInvite = useCallback(async () => {
     if (!user || !profile || !pendingInvite) return;
-    setLoading(true);
+    setTransitioning(true);
     try {
       const emailLower = user.email?.toLowerCase() ?? "";
       const childProfileRef = doc(db, "child_profiles", emailLower);
@@ -391,13 +420,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Failed to accept child invitation:", err);
       showToast("Failed to join family.", "error");
     } finally {
-      setLoading(false);
+      setTransitioning(false);
     }
   }, [user, profile, pendingInvite, showToast, router]);
 
   const rejectChildInvite = useCallback(async () => {
     if (!user || !pendingInvite) return;
-    setLoading(true);
+    setTransitioning(true);
     try {
       const emailLower = user.email?.toLowerCase() ?? "";
       const childProfileRef = doc(db, "child_profiles", emailLower);
@@ -414,7 +443,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Failed to reject child invitation:", err);
       showToast("Failed to reject invitation.", "error");
     } finally {
-      setLoading(false);
+      setTransitioning(false);
     }
   }, [user, pendingInvite, showToast]);
 
@@ -433,7 +462,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const showProfileSync = user && !profile && !loading;
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, logout, showToast, memberships: fullMemberships, switchProfile, pendingInvite, acceptChildInvite, rejectChildInvite }}>
+    <AuthContext.Provider value={{ user, profile, loading, logout, showToast, memberships: fullMemberships, switchProfile, pendingInvite, acceptChildInvite, rejectChildInvite, hasChildProfile }}>
       {loading ? (
         <div className="ui-app-bg min-h-screen flex items-center justify-center">
           <div className="text-center animate-pulse">
