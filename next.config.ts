@@ -13,6 +13,7 @@ let nextConfig: NextConfig = {
 const localConfigPath = path.join(__dirname, "next.config.local.js");
 if (fs.existsSync(localConfigPath)) {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const localConfig = require(localConfigPath);
     nextConfig = { ...nextConfig, ...localConfig };
   } catch (err) {
