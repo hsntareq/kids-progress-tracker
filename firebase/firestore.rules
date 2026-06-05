@@ -162,9 +162,7 @@ service cloud.firestore {
     match /families/{familyId} {
       allow read: if isAdmin()
         || (signedIn() && callerHasNoFamily())
-        || (isParent() && familyId == callerFamilyId())
-        || (isChild() && familyId == callerFamilyId())
-        || (isParent() && familyId == callerFamilyId() && isFamilyOwner(familyId))
+        || (signedIn() && familyId == callerFamilyId())
         || (
           // Allow read if user has an active or pending membership in this family
           signedIn()
