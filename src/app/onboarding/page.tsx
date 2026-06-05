@@ -11,7 +11,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import NotificationCenter from "@/components/notifications";
-import { Plus, Trash2, LogOut } from "lucide-react";
+import { Plus, Trash2, LogOut, Mail } from "lucide-react";
 
 interface ChildInput {
   name: string;
@@ -19,7 +19,7 @@ interface ChildInput {
 }
 
 export default function OnboardingPage() {
-  const { user, profile, logout } = useAuth();
+  const { user, profile, logout, pendingInvite, acceptChildInvite, rejectChildInvite } = useAuth();
   const [onboardFamilyName, setOnboardFamilyName] = useState("");
   const [onboardChildren, setOnboardChildren] = useState<ChildInput[]>([
     { name: "", email: "" },
@@ -146,6 +146,49 @@ export default function OnboardingPage() {
       setOnboardSubmitting(false);
     }
   };
+
+  // If there's a pending child invitation, render the approval card prominently
+  if (pendingInvite) {
+    return (
+      <div className="ui-app-bg min-h-screen flex items-center justify-center p-4 md:p-8 relative">
+        <div className="absolute top-6 right-6 z-50 flex items-center gap-3">
+          <button
+            onClick={logout}
+            className="p-2 hover:bg-slate-100/80 rounded-xl focus:outline-none ui-focus transition-all duration-200 cursor-pointer flex items-center justify-center text-slate-700 hover:text-red-600 gap-1.5 font-semibold text-xs border border-slate-200/60 bg-white shadow-sm"
+            title="Logout"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Logout</span>
+          </button>
+        </div>
+        <main className="ui-panel w-full max-w-md p-6 md:p-8 text-center enter-rise flex flex-col items-center gap-6">
+          <div className="w-16 h-16 bg-teal-50 rounded-full flex items-center justify-center border border-teal-100/60 shadow-inner">
+            <Mail className="w-8 h-8 text-teal-600 animate-pulse" />
+          </div>
+          <div>
+            <h1 className="ui-title text-2xl font-bold text-slate-900">Family Invitation</h1>
+            <p className="mt-3 text-sm text-slate-600 leading-relaxed">
+              You have been invited to join the <strong className="text-teal-700">{pendingInvite.familyName}</strong> family group as a Child.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 w-full mt-2">
+            <button
+              onClick={acceptChildInvite}
+              className="flex-1 py-3 text-sm font-semibold rounded-xl text-white bg-teal-600 hover:bg-teal-700 active:scale-[0.98] transition-all shadow-md cursor-pointer"
+            >
+              Accept & Join
+            </button>
+            <button
+              onClick={rejectChildInvite}
+              className="flex-1 py-3 text-sm font-semibold rounded-xl text-slate-700 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] transition-all cursor-pointer"
+            >
+              Decline
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   // Safe checks: only show content if logged in parent
   if (!user || profile?.activeRole !== "parent") {

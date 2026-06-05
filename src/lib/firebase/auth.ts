@@ -78,49 +78,12 @@ export async function registerWithEmail(input: RegisterInput) {
       null
     ));
 
-    // Step 2: Check if there is a pre-approved child profile
-    const childProfileRef = doc(db, "child_profiles", emailLower);
-    const childProfileSnap = await getDoc(childProfileRef);
-
-    if (childProfileSnap.exists()) {
-      const profileData = childProfileSnap.data();
-      const targetFamilyId = profileData.familyId;
-      const targetParentId = profileData.parentId;
-
-      // 2a. Update user doc to assign child role & family
-      await updateDoc(userRef, {
-        role: ["child"],
-        activeRole: "child",
-        familyId: targetFamilyId,
-        parentId: targetParentId,
-        updatedAt: serverTimestamp(),
-      });
-
-      // 2b. Create membership
-      const memberDocId = `${targetFamilyId}_${userUid}`;
-      await setDoc(doc(db, "family_members", memberDocId), {
-        id: memberDocId,
-        familyId: targetFamilyId,
-        userId: userUid,
-        role: "child",
-        status: "active",
-        createdAt: serverTimestamp(),
-      });
-
-      // 2c. Mark child profile as CLAIMED
-      await updateDoc(childProfileRef, {
-        status: "CLAIMED",
-        claimedBy: userUid,
-        updatedAt: serverTimestamp(),
-      });
-    } else {
-      // General registration fallback (default to parent/onboarding)
-      await updateDoc(userRef, {
-        role: ["parent"],
-        activeRole: "parent",
-        updatedAt: serverTimestamp(),
-      });
-    }
+    // Step 2: Update user doc to assign role (transition from null to initial role)
+    await updateDoc(userRef, {
+      role: ["parent"],
+      activeRole: "parent",
+      updatedAt: serverTimestamp(),
+    });
 
     return credentials.user;
   } catch (error) {
@@ -170,55 +133,17 @@ export async function signInWithGoogle() {
 
   if (!snapshot.exists()) {
     try {
-      console.log("signInWithGoogle: creating new user doc...");
+      console.log("signInWithGoogle: creating new parent user doc...");
       await setDoc(userRef, baseProfile(user, null, null));
-      console.log("signInWithGoogle: user doc created. checking for child profile...");
-
-      const emailLower = user.email?.toLowerCase() ?? "";
-      const childProfileRef = doc(db, "child_profiles", emailLower);
-      const childProfileSnap = await getDoc(childProfileRef);
-
-      if (childProfileSnap.exists()) {
-        const profileData = childProfileSnap.data();
-        const targetFamilyId = profileData.familyId;
-        const targetParentId = profileData.parentId;
-
-        console.log("signInWithGoogle: child profile found. updating role and membership...");
-        await updateDoc(userRef, {
-          role: ["child"],
-          activeRole: "child",
-          familyId: targetFamilyId,
-          parentId: targetParentId,
-          updatedAt: serverTimestamp(),
-        });
-
-        const memberDocId = `${targetFamilyId}_${user.uid}`;
-        await setDoc(doc(db, "family_members", memberDocId), {
-          id: memberDocId,
-          familyId: targetFamilyId,
-          userId: user.uid,
-          role: "child",
-          status: "active",
-          createdAt: serverTimestamp(),
-        });
-
-        await updateDoc(childProfileRef, {
-          status: "CLAIMED",
-          claimedBy: user.uid,
-          updatedAt: serverTimestamp(),
-        });
-        console.log("signInWithGoogle: child registration complete.");
-      } else {
-        console.log("signInWithGoogle: parent user doc created. updating role...");
-        await updateDoc(userRef, {
-          role: ["parent"],
-          activeRole: "parent",
-          updatedAt: serverTimestamp(),
-        });
-        console.log("signInWithGoogle: parent role updated.");
-      }
+      console.log("signInWithGoogle: parent user doc created. updating role...");
+      await updateDoc(userRef, {
+        role: ["parent"],
+        activeRole: "parent",
+        updatedAt: serverTimestamp(),
+      });
+      console.log("signInWithGoogle: parent role updated.");
     } catch (err) {
-      console.error("signInWithGoogle: error writing new user doc / role:", err);
+      console.error("signInWithGoogle: error writing parent user doc / role:", err);
       throw err;
     }
   } else {
