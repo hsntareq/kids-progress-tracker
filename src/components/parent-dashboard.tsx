@@ -293,7 +293,7 @@ export default function ParentDashboard() {
   const [customTaskTitle, setCustomTaskTitle] = useState("");
   const [customTaskPoints, setCustomTaskPoints] = useState("10");
 
-  const dashboardLoading = !!profile?.familyId && (!family || !childrenLoaded);
+  const dashboardLoading = !!familyIdToUse && (!family || !childrenLoaded);
 
   // --- Subscribe to Family / Child profiles (for Parent) ---
   useEffect(() => {
