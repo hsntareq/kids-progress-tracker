@@ -11,7 +11,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import NotificationCenter from "@/components/notifications";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, LogOut } from "lucide-react";
 
 interface ChildInput {
   name: string;
@@ -19,7 +19,7 @@ interface ChildInput {
 }
 
 export default function OnboardingPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, logout } = useAuth();
   const [onboardFamilyName, setOnboardFamilyName] = useState("");
   const [onboardChildren, setOnboardChildren] = useState<ChildInput[]>([
     { name: "", email: "" },
@@ -154,8 +154,16 @@ export default function OnboardingPage() {
 
   return (
     <div className="ui-app-bg min-h-screen flex items-center justify-center p-4 md:p-8 relative">
-      <div className="absolute top-6 right-6 z-50">
+      <div className="absolute top-6 right-6 z-50 flex items-center gap-3">
         <NotificationCenter />
+        <button
+          onClick={logout}
+          className="p-2 hover:bg-slate-100/80 rounded-xl focus:outline-none ui-focus transition-all duration-200 cursor-pointer flex items-center justify-center text-slate-700 hover:text-red-600 gap-1.5 font-semibold text-xs border border-slate-200/60 bg-white shadow-sm"
+          title="Logout"
+        >
+          <LogOut className="w-4 h-4" />
+          <span className="hidden sm:inline">Logout</span>
+        </button>
       </div>
       <main className="ui-panel w-full max-w-xl p-6 md:p-10 enter-rise">
         <div className="text-center mb-8">
