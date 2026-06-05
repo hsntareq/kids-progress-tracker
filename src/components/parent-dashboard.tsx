@@ -27,7 +27,8 @@ import {
   Trash2,
   Plus,
   LogOut,
-  Menu
+  Menu,
+  RefreshCw
 } from "lucide-react";
 
 export default function ParentDashboard() {
@@ -209,6 +210,22 @@ export default function ParentDashboard() {
       console.error("Error removing child:", err);
       const errorVal = err as Error;
       setAddChildError(errorVal.message || "Failed to remove child.");
+    }
+  };
+
+  const handleResendInvite = async (child: ChildProfile) => {
+    try {
+      const childProfileRef = doc(db, "child_profiles", child.email);
+      await updateDoc(childProfileRef, {
+        status: "APPROVED",
+        updatedAt: serverTimestamp(),
+      });
+      setAddChildSuccess(`Successfully resent family invitation to ${child.name}!`);
+      setAddChildError(null);
+    } catch (err: unknown) {
+      console.error("Error resending invitation:", err);
+      const errorVal = err as Error;
+      setAddChildError(errorVal.message || "Failed to resend invitation.");
     }
   };
 
@@ -583,11 +600,23 @@ export default function ParentDashboard() {
                           className={`ui-pill text-[0.6rem] font-bold ${
                             child.status === "CLAIMED"
                               ? "bg-green-50 text-green-700 border border-green-200"
+                              : child.status === "REJECTED"
+                              ? "bg-rose-50 text-rose-700 border border-rose-200"
                               : "bg-amber-50 text-amber-700 border border-amber-200"
                           }`}
                         >
-                          {child.status === "CLAIMED" ? "Active" : "Invited"}
+                          {child.status === "CLAIMED" ? "Active" : child.status === "REJECTED" ? "Declined" : "Invited"}
                         </span>
+                        {child.status === "REJECTED" && (
+                          <button
+                            onClick={() => handleResendInvite(child)}
+                            className="text-slate-500 hover:text-teal-600 hover:bg-teal-50 border border-slate-200 hover:border-teal-200 rounded-lg p-1.5 transition-all cursor-pointer flex items-center justify-center gap-1 text-[10px] font-bold"
+                            title="Resend Invite"
+                          >
+                            <RefreshCw className="w-3 h-3" />
+                            <span>Resend</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => handleRemoveChild(child)}
                           className="text-slate-400 hover:text-red-500 transition-colors p-1 cursor-pointer"

@@ -27,7 +27,7 @@ export interface ChildProfile {
   familyId: string;
   parentId: string;
   role: "child";
-  status: "APPROVED" | "CLAIMED";
+  status: "APPROVED" | "CLAIMED" | "REJECTED";
   claimedBy?: string | null;
   createdAt: unknown;
 }
