@@ -188,14 +188,14 @@ export default function ChildDashboard() {
   };
 
   return (
-    <div className="ui-app-bg min-h-screen flex flex-col items-center gap-4 md:py-6 bg-slate-50/50 px-4">
-      {/* Boxed Header */}
-      <div className="w-full max-w-[1400px] mx-auto bg-white md:rounded-3xl shadow-sm border border-slate-200/60 flex justify-between items-center px-6 py-4 relative z-20">
+    <div className="ui-app-bg min-h-screen flex flex-col items-center bg-slate-50 px-4 md:px-8 py-2 md:py-6">
+      {/* Top Navbar */}
+      <div className="w-full max-w-[1400px] mx-auto flex justify-between items-center py-4 relative z-20">
         
         {/* Topbar Logo */}
         <div className="flex flex-col gap-0.5 cursor-pointer group">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-kid-brand flex items-center justify-center shadow-md shadow-purple-200 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-2xl bg-kid-brand flex items-center justify-center group-hover:scale-105 transition-transform">
               <span className="text-white font-extrabold text-lg font-kid">S</span>
             </div>
             <span className="text-2xl font-bold text-parent-brand ui-title tracking-tight font-kid">StellarSteps</span>
@@ -220,10 +220,10 @@ export default function ChildDashboard() {
           </div>
         </div>
 
-      {/* Boxed Main Content */}
-      <div className="w-full max-w-[1400px] mx-auto bg-white md:min-h-[calc(100vh-140px)] md:rounded-[2.5rem] shadow-sm border border-slate-200/60 flex flex-col relative overflow-hidden">
+      {/* Main Content Area */}
+      <div className="w-full max-w-[1400px] mx-auto flex flex-col relative flex-1 mt-2 md:mt-4">
 
-        <div className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8 overflow-y-auto">
+        <div className="flex-1 max-w-6xl w-full mx-auto space-y-6">
 
         
         {/* Kid Switcher (Mock for visual match) */}

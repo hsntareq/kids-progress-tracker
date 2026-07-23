@@ -201,9 +201,20 @@ export default function LoginPage() {
 
           {/* Password Field */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Password
-            </label>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Password
+              </label>
+              {email && isLogin && (
+                <button
+                  type="button"
+                  onClick={() => setPassword(email)}
+                  className="text-[11px] font-bold text-teal-700 hover:text-teal-900 transition-colors cursor-pointer"
+                >
+                  Use email as password
+                </button>
+              )}
+            </div>
             <input
               className="ui-input w-full"
               type="password"
@@ -212,6 +223,11 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            {isLogin && (
+              <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                💡 Tip: All accounts use their email address as password (e.g. <span className="font-semibold text-slate-600">user@example.com</span>).
+              </p>
+            )}
           </div>
 
           {/* Submit Button */}

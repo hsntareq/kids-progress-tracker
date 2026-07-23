@@ -732,11 +732,11 @@ export default function ParentDashboard() {
   }
 
   return (
-    <div className="ui-app-bg min-h-screen flex flex-col items-center gap-4 md:py-6 bg-slate-50/50 px-4">
-      {/* Boxed Header */}
-      <div className="w-full max-w-[1400px] mx-auto bg-white md:rounded-3xl shadow-sm border border-slate-200/60 flex flex-col relative z-20">
+    <div className="ui-app-bg min-h-screen flex flex-col items-center bg-slate-50 px-4 md:px-8 py-2 md:py-6">
+      {/* Top Navbar */}
+      <div className="w-full max-w-[1400px] mx-auto flex flex-col relative z-20">
       {/* Mobile Navbar */}
-      <header className="md:hidden border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+      <header className="md:hidden border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-40 rounded-2xl">
         <div className="flex items-center gap-2">
           <span className="text-2xl font-bold ui-title text-slate-900">StellarSteps</span>
         </div>
@@ -765,7 +765,7 @@ export default function ParentDashboard() {
             }}
             className={`w-full py-3 px-4 rounded-xl text-left text-sm font-semibold flex items-center gap-3 transition-all cursor-pointer ${
               activeTab === "families"
-                ? "bg-teal-50 border-l-4 border-teal-600 text-teal-800 shadow-sm"
+                ? "bg-teal-50 border-l-4 border-teal-600 text-teal-800"
                 : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-4 border-transparent"
             }`}
           >
@@ -779,7 +779,7 @@ export default function ParentDashboard() {
             }}
             className={`w-full py-3 px-4 rounded-xl text-left text-sm font-semibold flex items-center gap-3 transition-all cursor-pointer ${
               activeTab === "profile"
-                ? "bg-teal-50 border-l-4 border-teal-600 text-teal-800 shadow-sm"
+                ? "bg-teal-50 border-l-4 border-teal-600 text-teal-800"
                 : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-4 border-transparent"
             }`}
           >
@@ -811,14 +811,14 @@ export default function ParentDashboard() {
       </aside>
 
         {/* Desktop Topbar */}
-        <div className="hidden md:flex justify-between items-center gap-4 px-8 py-4 w-full">
+        <div className="hidden md:flex justify-between items-center gap-4 py-4 w-full">
           {/* Logo linked to Overview */}
           <div 
             onClick={() => setActiveTab("overview")}
             className="flex flex-col gap-0.5 cursor-pointer group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-kid-brand flex items-center justify-center shadow-lg shadow-purple-200 group-hover:scale-105 transition-transform">
+              <div className="w-10 h-10 rounded-2xl bg-kid-brand flex items-center justify-center group-hover:scale-105 transition-transform">
                 <span className="text-white font-extrabold text-lg font-kid">S</span>
               </div>
               <h2 className="text-2xl font-bold text-parent-brand tracking-tight font-kid">
@@ -834,7 +834,7 @@ export default function ParentDashboard() {
           <div className="flex items-center gap-6">
             <button
               onClick={() => setActiveTab("families")}
-              className={`text-sm font-semibold cursor-pointer transition-colors ${activeTab === "families" ? "text-teal-600" : "text-slate-500 hover:text-slate-900"}`}
+              className={`text-sm font-semibold cursor-pointer transition-colors ${activeTab === "families" ? "text-teal-600 font-bold" : "text-slate-500 hover:text-slate-900"}`}
             >
               Families
             </button>
@@ -862,11 +862,11 @@ export default function ParentDashboard() {
         </div>
       </div>
 
-      {/* Boxed Main Content */}
-      <div className="w-full max-w-[1400px] mx-auto bg-white md:min-h-[calc(100vh-140px)] md:rounded-[2.5rem] shadow-sm border border-slate-200/60 flex flex-col relative overflow-hidden">
+      {/* Main Content */}
+      <div className="w-full max-w-[1400px] mx-auto flex flex-col relative flex-1 mt-2 md:mt-4">
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto space-y-6 md:space-y-8 overflow-y-auto">
+      <main className="flex-1 max-w-7xl w-full mx-auto space-y-6 md:space-y-8">
         {/* Dynamic Tab Render */}
         {/* Dynamic Tab Render */}
         {activeTab === "overview" && (() => {
@@ -978,8 +978,8 @@ export default function ParentDashboard() {
                             : idx === 0;
 
                           const cardShadow = isSelected
-                            ? "shadow-xl hover:shadow-sm"
-                            : "shadow-none hover:shadow-xs";
+                            ? "ring-1 ring-amber-400/50"
+                            : "";
                           
                           return (
                             <div 
@@ -1016,7 +1016,7 @@ export default function ParentDashboard() {
                   </section>
 
                   {/* Kid's Assignments Section (Under Kids Profile with Progress) */}
-                  <section className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                  <section className="bg-white p-6 rounded-3xl border border-slate-200/70">
                     <div className="flex justify-between items-center mb-6">
                       <h3 className="text-lg font-bold text-parent-brand font-kid">
                         {selectedOverviewKid ? `${selectedOverviewKid.name}'s assignments` : "Kid's assignments"}
@@ -1051,7 +1051,7 @@ export default function ParentDashboard() {
                           return (
                             <div key={task.id} className="p-3.5 rounded-2xl bg-slate-50/60 hover:bg-slate-50 transition-all flex justify-between items-center group">
                               <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-2xl bg-white shadow-xs border border-slate-100 flex items-center justify-center text-xl flex-shrink-0">
+                                <div className="w-10 h-10 rounded-2xl bg-white border border-slate-200/60 flex items-center justify-center text-xl flex-shrink-0">
                                   {getIcon(task.title, idx)}
                                 </div>
                                 <div>
@@ -1059,7 +1059,10 @@ export default function ParentDashboard() {
                                   <p className="text-xs text-slate-400 font-medium mt-0.5">{statusText}</p>
                                 </div>
                               </div>
-                              <span className="text-sm font-extrabold text-parent-accent">+{task.points}</span>
+
+                              <span className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-3 py-1 rounded-full">
+                                {task.points} pts
+                              </span>
                             </div>
                           );
                         })
@@ -1207,17 +1210,17 @@ export default function ParentDashboard() {
                 </button>
               </div>
 
-              {/* Child Header */}
-              <div className="ui-panel p-6 bg-gradient-to-br from-teal-50/50 to-cyan-50/30 flex items-center justify-between gap-6 flex-wrap">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-teal-600 text-white font-extrabold rounded-2xl flex items-center justify-center text-3xl shadow-md shadow-teal-600/20">
+              {/* Child Header Banner */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between gap-6 flex-wrap">
+                <div className="flex items-center gap-5">
+                  <div className="w-16 h-16 bg-indigo-50 border border-indigo-100 text-indigo-700 font-extrabold rounded-2xl flex items-center justify-center text-3xl font-kid shadow-xs">
                     {selectedChild.name[0]?.toUpperCase() || "C"}
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900 ui-title">
+                    <h2 className="text-2xl md:text-3xl font-extrabold text-parent-brand font-kid tracking-tight">
                       {selectedChild.name}
                     </h2>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-400 font-semibold mt-0.5">
                       {selectedChild.email}
                     </p>
                   </div>
@@ -1229,7 +1232,7 @@ export default function ParentDashboard() {
                       onClick={async () => {
                         await handleResendInvite(selectedChild);
                       }}
-                      className="px-4 py-2 text-xs font-bold rounded-xl border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-800 transition-all cursor-pointer flex items-center gap-1.5"
+                      className="px-4 py-2.5 text-xs font-bold rounded-full border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-800 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span>Resend Invitation</span>
@@ -1240,13 +1243,12 @@ export default function ParentDashboard() {
                     onClick={async () => {
                       const childToRemove = selectedChild;
                       if (!childToRemove) return;
-                      // Navigate back to family detail view first to avoid race conditions
                       const params = new URLSearchParams(searchParams.toString());
                       params.delete("kid");
                       router.push(`/dashboard?${params.toString()}`);
                       await handleRemoveChild(childToRemove);
                     }}
-                    className="px-4 py-2 text-xs font-bold rounded-xl border border-red-100 hover:border-red-200 bg-red-50 hover:bg-red-100 text-red-700 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                    className="px-4 py-2.5 text-xs font-bold rounded-full border border-rose-100 hover:border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Remove from Family</span>
@@ -1257,42 +1259,43 @@ export default function ParentDashboard() {
               {/* Stats Cards */}
               <section className="grid gap-4 sm:grid-cols-4">
                 {/* Stars Balance Card */}
-                <div className="ui-panel p-5 bg-white">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Stars Balance</span>
-                  <div className="text-3xl font-extrabold text-slate-900 ui-title mt-1 flex items-center gap-1.5">
-                    <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Stars Balance</span>
+                  <div className="text-3xl font-extrabold text-parent-brand font-kid tracking-tight mt-2 flex items-center gap-2">
+                    <Star className="w-7 h-7 text-amber-500 fill-amber-500" />
                     <span>{selectedChildUser?.points || 0} pts</span>
                   </div>
                 </div>
 
                 {/* Taka Earnings Card */}
-                <div className="ui-panel p-5 bg-white">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Taka Earnings</span>
-                  <div className="text-3xl font-extrabold text-teal-600 ui-title mt-1">
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Taka Earnings</span>
+                  <div className="text-3xl font-extrabold text-teal-600 font-kid tracking-tight mt-2">
                     {((selectedChildUser?.points || 0) / (family?.takaConversionRate || 1)).toFixed(0)}৳
                   </div>
                 </div>
 
                 {/* Profile Rating Card */}
-                <div className="ui-panel p-5 bg-white">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Profile Rating</span>
-                  <div className="mt-1">
-                    <div className="flex gap-0.5">
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Profile Rating</span>
+                  <div className="mt-2">
+                    <div className="flex gap-1">
                       {[1, 2, 3, 4, 5].map((s) => (
                         <Star key={s} className={`w-4 h-4 ${s <= stars ? "text-amber-500 fill-amber-500" : "text-slate-200"}`} />
                       ))}
                     </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mt-1 block">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mt-1.5 block">
                       {kidTitle} ({total > 0 ? Math.round(rate * 100) : 100}%)
                     </span>
                   </div>
                 </div>
 
                 {/* Behavior Status Card */}
-                <div className="ui-panel p-5 bg-white">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Behavior Status</span>
-                  <div className="mt-1">
-                    <span className={`ui-pill text-xs font-bold px-2.5 py-1 inline-block ${colors[status as keyof typeof colors]}`}>
+                <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Behavior Status</span>
+                  <div className="mt-2">
+                    <span className={`px-3 py-1.5 rounded-full text-xs font-extrabold inline-flex items-center gap-1.5 shadow-xs ${colors[status as keyof typeof colors]}`}>
+                      <span className="w-2 h-2 rounded-full bg-current"></span>
                       {labels[status as keyof typeof labels]}
                     </span>
                   </div>
@@ -1300,21 +1303,21 @@ export default function ParentDashboard() {
               </section>
 
               {/* Behavior & Conversion Controls */}
-              <section className="ui-panel p-6 bg-white space-y-4">
-                <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Behavior & Conversion Controls</h3>
+              <section className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                <h3 className="text-base font-extrabold text-parent-brand font-kid tracking-tight">Behavior & Conversion Controls</h3>
                 <div className="grid gap-6 md:grid-cols-2">
                   {/* Behavior Grade */}
                   <div className="space-y-3">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Set Behavior Grade</span>
-                    <div className="flex gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block">Set Behavior Grade</span>
+                    <div className="flex gap-2 flex-wrap">
                       {(["excellent", "good", "average", "needs_improvement"] as const).map((bStatus) => (
                         <button
                           key={bStatus}
                           onClick={() => handleUpdateBehaviorStatus(bStatus)}
-                          className={`px-3 py-1.5 border rounded-lg text-xs font-bold capitalize transition-all cursor-pointer ${
+                          className={`px-4 py-2 rounded-2xl text-xs font-bold capitalize transition-all cursor-pointer shadow-xs ${
                             status === bStatus
-                              ? "border-teal-500 bg-teal-50 text-teal-800"
-                              : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                              ? "border-2 border-teal-500 bg-teal-50 text-teal-800 shadow-sm"
+                              : "border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300"
                           }`}
                         >
                           {bStatus === "needs_improvement" ? "Needs Work" : bStatus}
@@ -1324,17 +1327,17 @@ export default function ParentDashboard() {
                   </div>
                   {/* Manual Point Adjustments */}
                   <div className="space-y-3">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Point Adjustments</span>
-                    <div className="flex gap-2.5">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block">Point Adjustments</span>
+                    <div className="flex gap-3">
                       <button
                         onClick={() => handleAdjustPoints(5, "Good Behavior Bonus")}
-                        className="px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-xs font-bold hover:bg-emerald-100 transition-all cursor-pointer flex items-center gap-1"
+                        className="px-5 py-2.5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl text-xs font-bold hover:bg-emerald-100 hover:shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                       >
                         +5 Stars
                       </button>
                       <button
                         onClick={() => handleAdjustPoints(-5, "Behavior Penalty")}
-                        className="px-4 py-2 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs font-bold hover:bg-rose-100 transition-all cursor-pointer flex items-center gap-1"
+                        className="px-5 py-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-2xl text-xs font-bold hover:bg-rose-100 hover:shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                       >
                         -5 Stars
                       </button>
@@ -1343,18 +1346,18 @@ export default function ParentDashboard() {
                 </div>
 
                 {/* Taka Conversion Input */}
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-between flex-wrap gap-4">
+                <div className="pt-5 border-t border-slate-100 flex items-center justify-between flex-wrap gap-4">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Taka Conversion Rate</span>
-                    <span className="text-xs text-slate-500">Define how many stars/points make up 1 Taka (৳).</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Taka Conversion Rate</span>
+                    <span className="text-xs text-slate-500 font-medium mt-0.5">Define how many stars/points make up 1 Taka (৳).</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 bg-slate-50/70 p-2 rounded-2xl border border-slate-200/60">
                     <span className="text-xs font-bold text-slate-600">1 Taka (৳) =</span>
                     <input
                       type="number"
                       min="1"
                       step="1"
-                      className="w-16 bg-slate-50 border border-slate-200 rounded-xl px-2 py-1.5 text-xs font-bold text-slate-800 outline-none focus:border-teal-500 text-center"
+                      className="w-20 bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-extrabold text-parent-brand outline-none focus:border-indigo-500 text-center shadow-xs"
                       value={family?.takaConversionRate || 1}
                       onChange={async (e) => {
                         const val = parseFloat(e.target.value);
@@ -1371,9 +1374,9 @@ export default function ParentDashboard() {
               {/* Quest Master (Assign Tasks & Presets) */}
               <section className="grid gap-6 md:grid-cols-2">
                 {/* Assign Presets */}
-                <div className="ui-panel p-6 bg-white space-y-4">
-                  <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Quick Quest Presets</h3>
-                  <div className="flex flex-col gap-2">
+                <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-5">
+                  <h3 className="text-base font-extrabold text-parent-brand font-kid tracking-tight">Quick Quest Presets</h3>
+                  <div className="flex flex-col gap-2.5">
                     {[
                       { title: "Finish HW", points: 15 },
                       { title: "Brush your teeth", points: 5 },
@@ -1384,10 +1387,10 @@ export default function ParentDashboard() {
                       <button
                         key={pIdx}
                         onClick={() => handleAssignTask(preset.title, preset.points)}
-                        className="w-full text-left px-4 py-3 border border-slate-100 hover:border-teal-100 hover:bg-teal-50/30 rounded-xl transition-all flex items-center justify-between text-xs font-bold text-slate-700 cursor-pointer"
+                        className="w-full text-left px-4 py-3.5 border border-slate-100 hover:border-indigo-100 hover:bg-indigo-50/30 rounded-2xl transition-all flex items-center justify-between text-xs font-bold text-slate-700 cursor-pointer group"
                       >
                         <span>{preset.title}</span>
-                        <span className="text-teal-600 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-md flex items-center gap-0.5">
+                        <span className="text-indigo-600 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-xl text-xs font-extrabold flex items-center gap-0.5 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
                           +{preset.points} pts
                         </span>
                       </button>
@@ -1396,13 +1399,13 @@ export default function ParentDashboard() {
                 </div>
 
                 {/* Custom Quest Creator */}
-                <div className="ui-panel p-6 bg-white space-y-4">
-                  <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider">Create Custom Quest</h3>
+                <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-5">
+                  <h3 className="text-base font-extrabold text-parent-brand font-kid tracking-tight">Create Custom Quest</h3>
                   <form onSubmit={handleCreateCustomTask} className="space-y-4">
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Quest Title</label>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Quest Title</label>
                       <input
-                        className="ui-input w-full"
+                        className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-500 text-xs font-bold text-slate-800 outline-none transition-all"
                         type="text"
                         placeholder="e.g. Wash the dishes, Clean room"
                         value={customTaskTitle}
@@ -1411,9 +1414,9 @@ export default function ParentDashboard() {
                       />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Reward Points</label>
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Reward Points</label>
                       <input
-                        className="ui-input w-full"
+                        className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-500 text-xs font-bold text-slate-800 outline-none transition-all"
                         type="number"
                         min="1"
                         value={customTaskPoints}
@@ -1423,7 +1426,7 @@ export default function ParentDashboard() {
                     </div>
                     <button
                       type="submit"
-                      className="ui-button-primary ui-focus w-full py-3 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="w-full py-3.5 rounded-2xl bg-parent-accent text-white font-extrabold text-xs shadow-md shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <Plus className="w-4 h-4" />
                       <span>Assign Quest</span>
@@ -1433,7 +1436,7 @@ export default function ParentDashboard() {
               </section>
 
               {/* Unified Assignments List */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
                 <div className="flex justify-between items-end px-2">
                   <h3 className="text-lg font-bold text-parent-brand font-kid">{selectedChild.name}'s assignments</h3>
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{tasks.filter(t => t.childEmail === selectedChild.email).length} TASKS</span>
@@ -1463,9 +1466,9 @@ export default function ParentDashboard() {
                         if (task.status === "PENDING_APPROVAL") statusText = "Awaiting approval";
                         
                         return (
-                          <div key={task.id} className="p-3 rounded-2xl hover:bg-slate-50 transition-all flex justify-between items-center group">
+                          <div key={task.id} className="p-3.5 rounded-2xl bg-slate-50/60 hover:bg-slate-50 transition-all flex justify-between items-center group">
                             <div className="flex items-center gap-4">
-                              <div className="w-8 h-8 flex items-center justify-center text-xl">
+                              <div className="w-10 h-10 rounded-2xl bg-white shadow-xs border border-slate-100 flex items-center justify-center text-xl flex-shrink-0">
                                 {icon}
                               </div>
                               <div className="flex flex-col gap-0.5">
@@ -1481,16 +1484,16 @@ export default function ParentDashboard() {
                               {task.status === "ACTIVE" && (
                                 <button
                                   onClick={() => handleCompleteTask(task)}
-                                  className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center hover:bg-emerald-100 hover:text-emerald-600 transition-all absolute right-4"
+                                  className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center hover:bg-emerald-100 hover:text-emerald-600 transition-all"
                                   title="Mark Complete"
                                 >
-                                  <CheckCircle2 className="w-3 h-3" />
+                                  <CheckCircle2 className="w-4 h-4" />
                                 </button>
                               )}
                               {task.status === "PENDING_APPROVAL" && (
-                                <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 absolute right-4 transition-all">
-                                  <button onClick={() => handleApproveTask(task)} className="px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[10px] font-bold">Approve</button>
-                                  <button onClick={() => handleRejectTask(task)} className="px-2 py-1 rounded bg-slate-100 text-slate-600 text-[10px] font-bold">Reject</button>
+                                <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 transition-all">
+                                  <button onClick={() => handleApproveTask(task)} className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold hover:bg-emerald-200 transition-colors">Approve</button>
+                                  <button onClick={() => handleRejectTask(task)} className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-bold hover:bg-slate-200 transition-colors">Reject</button>
                                 </div>
                               )}
                             </div>
@@ -1515,17 +1518,17 @@ export default function ParentDashboard() {
                 </button>
               </div>
 
-              {/* Family Header */}
-              <div className="ui-panel p-6 bg-gradient-to-br from-teal-50/50 to-cyan-50/30 flex items-center justify-between gap-6 flex-wrap">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-teal-600 text-white font-extrabold rounded-2xl flex items-center justify-center text-3xl shadow-md shadow-teal-600/20">
+              {/* Family Header Banner */}
+              <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm flex items-center justify-between gap-6 flex-wrap">
+                <div className="flex items-center gap-5">
+                  <div className="w-16 h-16 bg-teal-50 border border-teal-100 text-teal-700 font-extrabold rounded-2xl flex items-center justify-center text-3xl font-kid shadow-xs">
                     {matchedM?.familyName[0]?.toUpperCase() || "F"}
                   </div>
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-900 ui-title">
+                    <h2 className="text-2xl md:text-3xl font-extrabold text-parent-brand font-kid tracking-tight">
                       {matchedM?.familyName || "Family Group"}
                     </h2>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-400 font-semibold mt-0.5">
                       Family ID: {selectedFamilyId}
                     </p>
                   </div>
@@ -1538,7 +1541,7 @@ export default function ParentDashboard() {
                         setAddChildError(null);
                         setAddChildSuccess(null);
                       }}
-                      className="ui-button-primary ui-focus px-4 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="px-5 py-2.5 rounded-full bg-parent-accent text-white font-extrabold text-xs shadow-md shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       {showAddForm ? "Close Form" : (
                         <>
@@ -1555,15 +1558,15 @@ export default function ParentDashboard() {
               {showAddForm && (
                 <form
                   onSubmit={handleAddChild}
-                  className="ui-panel p-6 bg-slate-50/50 border-teal-100 flex flex-col md:flex-row gap-4 items-end enter-fade mt-4"
+                  className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-end mt-4"
                 >
                   <div className="flex-1 flex flex-col md:flex-row gap-4 w-full">
                     <div className="flex-1 flex flex-col gap-1.5 w-full">
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-505">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                         Child's Name
                       </label>
                       <input
-                        className="ui-input w-full"
+                        className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-500 text-xs font-bold text-slate-800 outline-none transition-all"
                         type="text"
                         placeholder="e.g. John Doe"
                         value={newChildName}
@@ -1572,11 +1575,11 @@ export default function ParentDashboard() {
                       />
                     </div>
                     <div className="flex-1 flex flex-col gap-1.5 w-full">
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-505">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                         Child's Email
                       </label>
                       <input
-                        className="ui-input w-full"
+                        className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-500 text-xs font-bold text-slate-800 outline-none transition-all"
                         type="email"
                         placeholder="e.g. john@example.com"
                         value={newChildEmail}
@@ -1588,7 +1591,7 @@ export default function ParentDashboard() {
                   <button
                     type="submit"
                     disabled={addChildSubmitting}
-                    className="ui-button-primary ui-focus px-6 py-3 text-sm font-semibold w-full md:w-auto flex items-center justify-center gap-2 cursor-pointer"
+                    className="px-6 py-3 rounded-2xl bg-parent-accent text-white font-extrabold text-xs shadow-md shadow-indigo-200 hover:bg-indigo-700 transition-all w-full md:w-auto flex items-center justify-center gap-2 cursor-pointer"
                   >
                     {addChildSubmitting ? (
                       <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
@@ -1601,19 +1604,19 @@ export default function ParentDashboard() {
 
               {/* Success / Error Alerts */}
               {addChildSuccess && (
-                <div className="p-4 rounded-xl border border-green-200 bg-green-50 text-green-700 text-sm enter-fade mt-2">
-                  <span className="font-semibold">Success:</span> {addChildSuccess}
+                <div className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-bold mt-2 shadow-xs">
+                  <span>Success:</span> {addChildSuccess}
                 </div>
               )}
               {addChildError && (
-                <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm enter-fade mt-2">
-                  <span className="font-semibold">Error:</span> {addChildError}
+                <div className="p-4 rounded-2xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-bold mt-2 shadow-xs">
+                  <span>Error:</span> {addChildError}
                 </div>
               )}
 
               {/* Members List */}
               <div className="space-y-4">
-                <h3 className="text-lg font-bold text-slate-900 ui-title">
+                <h3 className="text-xl font-extrabold text-parent-brand font-kid tracking-tight">
                   Family Members
                 </h3>
                 
@@ -1623,7 +1626,7 @@ export default function ParentDashboard() {
                     <p className="text-slate-500 text-xs mt-2">Loading family members...</p>
                   </div>
                 ) : selectedFamilyMembers.filter((m) => m.role === "child").length === 0 && selectedFamilyPendingInvites.length === 0 ? (
-                  <div className="ui-panel p-8 text-center text-slate-500 bg-white">
+                  <div className="bg-white p-8 rounded-3xl border border-slate-100 border-dashed text-center text-slate-500 text-sm font-medium">
                     No child profiles found in this family group.
                   </div>
                 ) : (
@@ -1641,19 +1644,19 @@ export default function ParentDashboard() {
                             params.set("kid", slugify(member.name));
                             router.push(`/dashboard?${params.toString()}`);
                           }}
-                          className="ui-panel p-5 bg-white flex items-center gap-4 shadow-sm border border-slate-100 hover:border-teal-200 hover:shadow-md transition-all cursor-pointer hover:scale-[1.01]"
+                          className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:border-teal-200 transition-all duration-300 flex items-center gap-5 cursor-pointer group"
                         >
-                          <div className="w-12 h-12 bg-teal-50 border border-teal-100 text-teal-700 font-bold rounded-2xl flex items-center justify-center text-xl">
+                          <div className="w-14 h-14 bg-teal-50 border border-teal-100 text-teal-700 font-extrabold rounded-2xl flex items-center justify-center text-2xl font-kid group-hover:scale-105 transition-transform flex-shrink-0">
                             {member.name[0]?.toUpperCase() || "M"}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className="font-bold text-slate-800 truncate">{member.name}</h4>
-                            <p className="text-xs text-slate-500 truncate">{member.email}</p>
-                            <div className="flex gap-2 mt-1.5 items-center">
-                              <span className="text-[10px] uppercase font-bold text-teal-700 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-md">
+                            <h4 className="font-extrabold text-parent-brand text-base truncate font-kid">{member.name}</h4>
+                            <p className="text-xs text-slate-400 font-semibold truncate mt-0.5">{member.email}</p>
+                            <div className="flex gap-2 mt-2 items-center">
+                              <span className="text-[10px] uppercase font-extrabold text-teal-700 bg-teal-50 border border-teal-100 px-2.5 py-0.5 rounded-full">
                                 👶 Kid
                               </span>
-                              <span className="text-xs text-amber-600 font-bold flex items-center gap-0.5">
+                              <span className="text-xs text-amber-600 font-extrabold flex items-center gap-1">
                                 <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
                                 {member.points} pts
                               </span>
@@ -1664,18 +1667,18 @@ export default function ParentDashboard() {
 
                     {/* Pending Invites */}
                     {selectedFamilyPendingInvites.map((invite, idx) => (
-                      <div key={`i-${idx}`} className="ui-panel p-5 bg-slate-50/50 border border-amber-200/60 flex items-center gap-4 shadow-sm">
-                        <div className="w-12 h-12 bg-amber-50 border border-amber-100 text-amber-700 font-bold rounded-2xl flex items-center justify-center text-xl">
+                      <div key={`i-${idx}`} className="bg-amber-50/40 p-6 rounded-3xl border border-amber-200/60 flex items-center gap-5 shadow-xs">
+                        <div className="w-14 h-14 bg-amber-100 border border-amber-200 text-amber-800 font-extrabold rounded-2xl flex items-center justify-center text-2xl font-kid flex-shrink-0">
                           {invite.name[0]?.toUpperCase() || "C"}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-slate-800 truncate">{invite.name}</h4>
-                          <p className="text-xs text-slate-500 truncate">{invite.email}</p>
-                          <div className="flex gap-2 mt-1.5 items-center flex-wrap">
-                            <span className="text-[10px] uppercase font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                          <h4 className="font-extrabold text-slate-800 text-base truncate font-kid">{invite.name}</h4>
+                          <p className="text-xs text-slate-400 font-semibold truncate mt-0.5">{invite.email}</p>
+                          <div className="flex gap-2 mt-2 items-center flex-wrap">
+                            <span className="text-[10px] uppercase font-extrabold text-amber-700 bg-amber-100/60 border border-amber-200 px-2.5 py-0.5 rounded-full">
                               👶 Child Invitation
                             </span>
-                            <span className="text-[10px] uppercase font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                            <span className="text-[10px] uppercase font-extrabold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full">
                               {invite.status === "APPROVED" ? "Pending Claim" : invite.status}
                             </span>
                             {invite.status === "REJECTED" && (
@@ -1683,7 +1686,7 @@ export default function ParentDashboard() {
                                 onClick={async () => {
                                   await handleResendInvite(invite);
                                 }}
-                                className="text-[10px] uppercase font-bold text-teal-800 bg-teal-50 border border-teal-200 hover:bg-teal-100 px-2.5 py-0.5 rounded-md cursor-pointer transition-all flex items-center gap-1"
+                                className="text-[10px] uppercase font-bold text-teal-800 bg-teal-50 border border-teal-200 hover:bg-teal-100 px-2.5 py-0.5 rounded-full cursor-pointer transition-all flex items-center gap-1"
                               >
                                 <RefreshCw className="w-3 h-3 animate-spin-hover" />
                                 <span>Re-invite</span>
@@ -1704,10 +1707,10 @@ export default function ParentDashboard() {
               <div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-2xl font-bold text-slate-900 ui-title">
+                    <h3 className="text-2xl font-extrabold text-parent-brand font-kid tracking-tight">
                       My Families
                     </h3>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-slate-400 font-semibold mt-0.5">
                       View your family groups or create a new family group
                     </p>
                   </div>
@@ -1716,7 +1719,7 @@ export default function ParentDashboard() {
                       setShowCreateFamilyForm(!showCreateFamilyForm);
                       setCreateFamilyError(null);
                     }}
-                    className="ui-button-primary ui-focus px-4 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="px-5 py-2.5 rounded-full bg-parent-accent text-white font-extrabold text-xs shadow-md shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     {showCreateFamilyForm ? "Close Form" : (
                       <>
@@ -1731,14 +1734,14 @@ export default function ParentDashboard() {
                 {showCreateFamilyForm && (
                   <form
                     onSubmit={handleCreateFamily}
-                    className="ui-panel p-6 bg-slate-50/50 border-teal-100 flex flex-col md:flex-row gap-4 items-end enter-fade mt-4"
+                    className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-end mt-4"
                   >
                     <div className="flex-1 flex flex-col gap-1.5 w-full">
-                      <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                         Family Group Name
                       </label>
                       <input
-                        className="ui-input w-full"
+                        className="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 focus:bg-white focus:border-indigo-500 text-xs font-bold text-slate-800 outline-none transition-all"
                         type="text"
                         placeholder="e.g. Smith Family, Grandma's House"
                         value={newFamilyName}
@@ -1749,7 +1752,7 @@ export default function ParentDashboard() {
                     <button
                       type="submit"
                       disabled={createFamilySubmitting}
-                      className="ui-button-primary ui-focus px-6 py-3 text-sm font-semibold w-full md:w-auto flex items-center justify-center gap-2 cursor-pointer"
+                      className="px-6 py-3 rounded-2xl bg-parent-accent text-white font-extrabold text-xs shadow-md shadow-indigo-200 hover:bg-indigo-700 transition-all w-full md:w-auto flex items-center justify-center gap-2 cursor-pointer"
                     >
                       {createFamilySubmitting ? (
                         <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
@@ -1762,8 +1765,8 @@ export default function ParentDashboard() {
 
                 {/* Alerts */}
                 {createFamilyError && (
-                  <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-red-700 text-sm enter-fade mt-4">
-                    <span className="font-semibold">Error:</span> {createFamilyError}
+                  <div className="p-4 rounded-2xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-bold mt-4 shadow-xs">
+                    <span>Error:</span> {createFamilyError}
                   </div>
                 )}
 
@@ -1777,7 +1780,7 @@ export default function ParentDashboard() {
                     return (
                       <div
                         key={idx}
-                        className="ui-panel p-6 flex flex-col justify-between hover:shadow-xl transition-all duration-300 bg-white border border-slate-100 hover:border-teal-200 cursor-pointer hover:scale-[1.02] shadow-sm hover:shadow-teal-100/40 relative overflow-hidden group"
+                        className="bg-white p-6 rounded-3xl border border-slate-100 hover:border-teal-200 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between cursor-pointer group hover:scale-[1.01] relative overflow-hidden"
                         onClick={async () => {
                           if (m.familyId && m.familyId !== profile?.familyId) {
                             await switchProfile(m.role, m.familyId);
@@ -1789,63 +1792,63 @@ export default function ParentDashboard() {
                         }}
                       >
                         {/* Hover Background Accent */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-teal-50/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+                        <div className="absolute inset-0 bg-gradient-to-br from-teal-50/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
 
                         <div className="space-y-4 relative z-10 flex-1">
                           {/* Header: Icon & Role Badge */}
                           <div className="flex items-start justify-between gap-4">
-                            <div className="w-12 h-12 rounded-2xl bg-teal-50 border border-teal-100 text-teal-700 flex items-center justify-center font-bold text-xl group-hover:scale-110 transition-transform duration-300 shadow-sm">
+                            <div className="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-100 text-teal-700 flex items-center justify-center font-extrabold text-2xl font-kid group-hover:scale-105 transition-transform duration-300 shadow-xs">
                               {m.familyName[0]?.toUpperCase() || "F"}
                             </div>
-                            <span className="text-[10px] uppercase tracking-wider font-extrabold px-2.5 py-1 rounded-full bg-slate-50 border border-slate-100 text-slate-500 capitalize">
+                            <span className="text-[10px] uppercase tracking-widest font-extrabold px-3 py-1 rounded-full bg-slate-50 border border-slate-200/60 text-slate-500 capitalize">
                               {m.role}
                             </span>
                           </div>
 
                           {/* Family Name */}
                           <div>
-                            <h4 className="font-extrabold text-slate-800 text-lg tracking-tight group-hover:text-teal-900 transition-colors">
+                            <h4 className="font-extrabold text-parent-brand text-xl tracking-tight font-kid group-hover:text-teal-800 transition-colors">
                               {m.familyName}
                             </h4>
-                            <p className="text-[11px] text-slate-400 mt-0.5 uppercase tracking-wider font-semibold">
+                            <p className="text-[10px] text-slate-400 mt-0.5 uppercase tracking-widest font-bold">
                               Household Group
                             </p>
                           </div>
 
                           {/* Stats Info */}
-                          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-50">
+                          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
                             {/* Member Count */}
                             <div className="flex flex-col">
-                              <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Total Members</span>
+                              <span className="text-[9px] uppercase font-extrabold text-slate-400 tracking-widest">Total Members</span>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <Users className="w-4 h-4 text-slate-500" />
-                                <span className="text-sm font-bold text-slate-700">
+                                <span className="text-sm font-extrabold text-parent-brand">
                                   {stats ? `${memberCount}` : "..."}
                                 </span>
                               </div>
                             </div>
 
-                            {/* Active Status placeholder */}
+                            {/* Active Status */}
                             <div className="flex flex-col">
-                              <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Status</span>
+                              <span className="text-[9px] uppercase font-extrabold text-slate-400 tracking-widest">Status</span>
                               <div className="flex items-center gap-1.5 mt-1">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                <span className="text-xs font-semibold text-slate-600">Active</span>
+                                <span className="text-xs font-bold text-slate-600">Active</span>
                               </div>
                             </div>
                           </div>
 
                           {/* Other Parents List */}
                           {otherParents.length > 0 && (
-                            <div className="bg-slate-50/60 rounded-xl p-3 border border-slate-100 flex flex-col gap-1 mt-2">
-                              <span className="text-[9px] uppercase font-extrabold text-slate-400 tracking-wider">
+                            <div className="bg-slate-50/70 rounded-2xl p-3 border border-slate-100 flex flex-col gap-1 mt-2">
+                              <span className="text-[9px] uppercase font-extrabold text-slate-400 tracking-widest">
                                 Other Parents
                               </span>
                               <div className="flex flex-wrap gap-1.5 mt-1">
                                 {otherParents.map((name, pIdx) => (
                                   <span
                                     key={pIdx}
-                                    className="text-[10px] font-bold text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-0.5"
+                                    className="text-[10px] font-bold text-slate-700 bg-white border border-slate-200 rounded-lg px-2 py-0.5 shadow-2xs"
                                   >
                                     👤 {name}
                                   </span>
@@ -1857,7 +1860,7 @@ export default function ParentDashboard() {
 
                         {/* Card Footer */}
                         <div className="mt-5 pt-3 border-t border-slate-100 flex justify-between items-center relative z-10 shrink-0">
-                          <span className="text-[10px] font-bold text-slate-400 group-hover:text-teal-600 transition-colors uppercase tracking-wider">
+                          <span className="text-[10px] font-bold text-slate-400 group-hover:text-teal-600 transition-colors uppercase tracking-widest">
                             View Family
                           </span>
                           <span className="text-teal-600 group-hover:translate-x-1.5 transition-transform duration-300">
@@ -1868,7 +1871,7 @@ export default function ParentDashboard() {
                     );
                   })}
                   {(!memberships || memberships.length === 0) && (
-                    <div className="col-span-full ui-panel p-8 text-center text-slate-500 bg-white">
+                    <div className="col-span-full bg-white p-8 rounded-3xl border border-slate-100 border-dashed text-center text-slate-500 text-sm font-medium">
                       You are not a member of any families yet. Use the button above to create one!
                     </div>
                   )}
@@ -1882,55 +1885,55 @@ export default function ParentDashboard() {
           <div className="space-y-6 md:space-y-8 enter-rise">
             {/* Header */}
             <div>
-              <h3 className="text-2xl font-bold text-slate-900 ui-title">
-                My Profile Profile
+              <h3 className="text-2xl font-extrabold text-parent-brand font-kid tracking-tight">
+                My Account Profile
               </h3>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-400 font-semibold mt-0.5">
                 Manage your parent account settings
               </p>
             </div>
 
-            <div className="ui-panel p-6 md:p-8 bg-white space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-teal-50 text-teal-700 rounded-2xl flex items-center justify-center border border-teal-100">
+            <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+              <div className="flex items-center gap-5">
+                <div className="w-16 h-16 bg-teal-50 text-teal-700 rounded-2xl flex items-center justify-center border border-teal-100 text-3xl font-kid shadow-xs">
                   <User className="w-8 h-8" />
                 </div>
                 <div>
-                  <h4 className="text-xl font-bold text-slate-800">{profile?.displayName}</h4>
-                  <p className="text-sm text-slate-500">{profile?.email}</p>
+                  <h4 className="text-xl font-extrabold text-parent-brand font-kid tracking-tight">{profile?.displayName}</h4>
+                  <p className="text-xs text-slate-400 font-semibold mt-0.5">{profile?.email}</p>
                 </div>
               </div>
 
-              <div className="grid gap-6 sm:grid-cols-2 pt-4 border-t border-slate-100">
+              <div className="grid gap-6 sm:grid-cols-2 pt-5 border-t border-slate-100">
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     Role Category
                   </span>
-                  <span className="text-sm font-semibold text-slate-700 capitalize">
+                  <span className="text-sm font-bold text-slate-700 capitalize">
                     {profile?.activeRole}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     Household Code ID
                   </span>
-                  <span className="text-sm font-semibold text-slate-700 select-all truncate">
+                  <span className="text-sm font-bold text-slate-700 select-all truncate">
                     {profile?.familyId || "Not Onboarded"}
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     Notification Preferences
                   </span>
-                  <span className="text-sm font-semibold text-slate-700">
+                  <span className="text-sm font-bold text-slate-700">
                     Email notifications enabled
                   </span>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                     Subscription Tier
                   </span>
-                  <span className="text-sm font-semibold text-teal-700 font-bold">
+                  <span className="text-sm font-extrabold text-teal-600">
                     Family Quest Premium (Free MVP)
                   </span>
                 </div>

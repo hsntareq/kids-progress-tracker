@@ -1,6 +1,6 @@
 import { getApp, getApps, initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getAuth, connectAuthEmulator, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: (process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "").trim(),
@@ -35,3 +35,22 @@ if (typeof window !== "undefined") {
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
+
+// Connect to Local Firebase Emulators when NEXT_PUBLIC_USE_FIREBASE_EMULATOR is true
+if (
+  process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATOR === "true" && 
+  typeof window !== "undefined"
+) {
+  // Prevent duplicate emulator connections across HMR reloads
+  const globalObj = window as unknown as { _firebaseEmulatorsConnected?: boolean };
+  if (!globalObj._firebaseEmulatorsConnected) {
+    globalObj._firebaseEmulatorsConnected = true;
+    try {
+      connectFirestoreEmulator(db, "127.0.0.1", 8080);
+      connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+      console.log("🔥 Connected to Firebase Local Emulators (Firestore: 8080, Auth: 9099)");
+    } catch (e) {
+      console.warn("Could not connect to Firebase Local Emulators:", e);
+    }
+  }
+}
