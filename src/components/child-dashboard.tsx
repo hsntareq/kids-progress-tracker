@@ -188,253 +188,209 @@ export default function ChildDashboard() {
   };
 
   return (
-    <div className="ui-app-bg min-h-screen flex flex-col md:flex-row">
-      {/* Mobile Navbar */}
-      <header className="md:hidden border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-40">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">Quest</span>
-          <span className="text-xs uppercase tracking-[0.25em] font-bold text-teal-700">
-            Kid
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-600 cursor-pointer flex items-center justify-center"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <NotificationCenter />
-        </div>
-      </header>
-
-      {/* Sidebar Navigation */}
-      <aside
-        className={`${
-          mobileMenuOpen ? "flex" : "hidden"
-        } md:flex flex-col w-full md:w-64 border-r border-slate-200/80 bg-white/90 backdrop-blur-md p-6 fixed md:sticky top-[60px] md:top-0 h-[calc(100vh-60px)] md:h-screen z-30 transition-all`}
-      >
-        {/* Brand Header */}
-        <div className="hidden md:flex flex-col gap-1 mb-8">
-          <span className="text-xs uppercase tracking-[0.25em] font-bold text-teal-700">
-            Family Quest
-          </span>
-          <h2 className="text-xl font-bold text-slate-900 ui-title leading-tight">
-            {family?.name || "Quest Room"}
-          </h2>
-        </div>
-
-        {/* Switcher selector */}
-        {memberships && memberships.length > 1 && (
-          <div className="mb-6 px-1 flex flex-col gap-1.5 enter-fade">
-            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Switch Role/Family
-            </label>
-            <select
-              value={memberships.findIndex(m => m.role === profile?.activeRole && m.familyId === profile?.familyId)}
-              onChange={(e) => {
-                const index = parseInt(e.target.value, 10);
-                if (index >= 0 && index < memberships.length) {
-                  const selected = memberships[index];
-                  switchProfile(selected.role, selected.familyId);
-                }
-              }}
-              className="w-full text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700 outline-none focus:border-teal-500 transition-all cursor-pointer"
-            >
-              {memberships.map((m, idx) => (
-                <option key={idx} value={idx}>
-                  {m.role === "admin" ? "🛡️ System Admin" : `${m.role === "parent" ? "👨‍👩‍👧 Parent" : "👶 Kid"} - ${m.familyName}`}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        <nav className="flex-1 space-y-1">
-          <button
-            onClick={() => {
-              setActiveTab("overview");
-              setMobileMenuOpen(false);
-            }}
-            className={`w-full py-3 px-4 rounded-xl text-left text-sm font-semibold flex items-center gap-3 transition-all cursor-pointer ${
-              activeTab === "overview"
-                ? "bg-teal-50 border-l-4 border-teal-600 text-teal-800 shadow-sm"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-4 border-transparent"
-            }`}
-          >
-            <Star className="w-4 h-4 flex-shrink-0" />
-            <span>Overview</span>
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab("settings");
-              setMobileMenuOpen(false);
-            }}
-            className={`w-full py-3 px-4 rounded-xl text-left text-sm font-semibold flex items-center gap-3 transition-all cursor-pointer ${
-              activeTab === "settings"
-                ? "bg-teal-50 border-l-4 border-teal-600 text-teal-800 shadow-sm"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-4 border-transparent"
-            }`}
-          >
-            <Settings className="w-4 h-4 flex-shrink-0" />
-            <span>Settings</span>
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab("profile");
-              setMobileMenuOpen(false);
-            }}
-            className={`w-full py-3 px-4 rounded-xl text-left text-sm font-semibold flex items-center gap-3 transition-all cursor-pointer ${
-              activeTab === "profile"
-                ? "bg-teal-50 border-l-4 border-teal-600 text-teal-800 shadow-sm"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-4 border-transparent"
-            }`}
-          >
-            <User className="w-4 h-4 flex-shrink-0" />
-            <span>Profile</span>
-          </button>
-        </nav>
-
-        <div className="border-t border-slate-100 pt-6 flex flex-col gap-4 mt-auto">
+    <div className="ui-app-bg min-h-screen flex flex-col items-center gap-4 md:py-6 bg-slate-50/50 px-4">
+      {/* Boxed Header */}
+      <div className="w-full max-w-[1400px] mx-auto bg-white md:rounded-3xl shadow-sm border border-slate-200/60 flex justify-between items-center px-6 py-4 relative z-20">
+        
+        {/* Topbar Logo */}
+        <div className="flex flex-col gap-0.5 cursor-pointer group">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-50 text-amber-700 rounded-2xl flex items-center justify-center border border-amber-100">
-              <User className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-2xl bg-kid-brand flex items-center justify-center shadow-md shadow-purple-200 group-hover:scale-105 transition-transform">
+              <span className="text-white font-extrabold text-lg font-kid">S</span>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-slate-800 truncate">
-                {profile?.displayName}
-              </p>
-              <p className="text-xs text-slate-500 truncate">Kid Hero</p>
-            </div>
+            <span className="text-2xl font-bold text-parent-brand ui-title tracking-tight font-kid">StellarSteps</span>
           </div>
-          <button
-            onClick={logout}
-            className="ui-button-secondary ui-focus w-full py-2.5 text-xs font-bold hover:border-red-200 hover:bg-red-50 hover:text-red-700 flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Logout</span>
-          </button>
+          <p className="text-slate-500 text-sm ml-13 hidden md:block">
+            Family progress ecosystem
+          </p>
         </div>
-      </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-4 md:p-8 max-w-4xl w-full mx-auto space-y-6 md:space-y-8 overflow-y-auto">
-        {/* Desktop Topbar */}
-        <div className="hidden md:flex justify-end items-center gap-4 pb-4 mb-2">
-          <NotificationCenter />
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-purple-100 text-purple-700 rounded-full flex items-center justify-center font-bold text-xs">
+                {profile?.displayName?.[0]?.toUpperCase() || "C"}
+              </div>
+              <span className="text-sm font-bold text-slate-800 hidden md:block">
+                Hi Child, {profile?.displayName?.split(" ")[0] || "Kid"}
+              </span>
+            </div>
+            <button onClick={logout} className="text-sm font-bold cursor-pointer text-slate-400 hover:text-red-600 transition-colors" title="Logout">
+              Logout
+            </button>
+          </div>
         </div>
+
+      {/* Boxed Main Content */}
+      <div className="w-full max-w-[1400px] mx-auto bg-white md:min-h-[calc(100vh-140px)] md:rounded-[2.5rem] shadow-sm border border-slate-200/60 flex flex-col relative overflow-hidden">
+
+        <div className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8 overflow-y-auto">
+
+        
+        {/* Kid Switcher (Mock for visual match) */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex gap-2">
+            <button className="px-4 py-1.5 rounded-full text-sm font-bold bg-kid-brand text-white shadow-sm">
+              {profile?.displayName || "Kid"}
+            </button>
+          </div>
+          
+          <div className="px-4 py-1.5 rounded-full bg-kid-brand/10 text-kid-brand text-xs font-bold flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-kid-accent"></span>
+            Level {Math.floor((profile?.points || 0) / 100) + 1}
+          </div>
+        </div>
+
         {/* Dynamic Tab Render */}
         {activeTab === "overview" && (
           <div className="space-y-6 md:space-y-8 enter-rise">
-            {/* Points & Taka Card */}
+            {/* Hero Card */}
             <section
-              className="ui-panel p-8 text-center text-white shadow-xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-500 animate-fade-in"
-              style={{ background: themeGradients[childTheme], border: "none" }}
+              className="bg-gradient-to-br from-[#8b5cf6] to-[#6366f1] p-6 md:p-8 rounded-[2rem] text-white shadow-lg shadow-purple-500/20 relative overflow-hidden"
             >
-              <div className="absolute w-64 h-64 bg-white/5 rounded-full -top-12 -left-12 pointer-events-none"></div>
-              <div className="absolute w-80 h-80 bg-white/5 rounded-full -bottom-16 -right-16 pointer-events-none"></div>
+              <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none blur-2xl"></div>
+              <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-white/5 rounded-full translate-y-1/4 -translate-x-1/4 pointer-events-none blur-2xl"></div>
 
-              <p className="text-xs uppercase tracking-[0.3em] font-bold text-teal-100">
-                Available Stars
-              </p>
-              <div className="mt-2 text-6xl md:text-7xl font-extrabold ui-title tracking-tight flex items-center justify-center gap-3">
-                <Star className="w-12 h-12 text-teal-100 fill-teal-100" />
-                <span>{profile?.points ?? 0}</span>
+              <div className="relative z-10">
+                <p className="text-[10px] uppercase tracking-widest font-bold text-white/70 mb-2">
+                  Today's Mission
+                </p>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-4xl md:text-5xl font-extrabold font-kid tracking-tight">
+                      Hi, {profile?.displayName || "Kid"}!
+                    </h2>
+                    <p className="text-sm text-white/90 mt-1 font-medium">
+                      2 quests left to reach the summit.
+                    </p>
+                  </div>
+                  <div className="text-4xl">🚀</div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="mt-12 mb-8 relative">
+                  <div className="flex justify-between text-[10px] font-bold text-white/70 mb-2 absolute right-0 -top-8">
+                    <div className="flex flex-col items-center">
+                      <span className="text-2xl mb-1">⛰️</span>
+                      <span className="bg-white/20 px-2 py-0.5 rounded-full">150 PTS</span>
+                    </div>
+                  </div>
+                  
+                  <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden relative">
+                    <div className="h-full bg-kid-accent rounded-full w-[25%] relative"></div>
+                  </div>
+                  {/* Rocket Indicator */}
+                  <div className="absolute left-[25%] -translate-x-1/2 top-1/2 -translate-y-1/2 mt-1">
+                    <div className="w-8 h-8 rounded-full bg-kid-accent flex items-center justify-center text-sm shadow-md border-2 border-[#8b5cf6]">🚀</div>
+                  </div>
+                </div>
+
+                {/* Bottom Stats */}
+                <div className="flex justify-between items-end mt-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-white/70">Sparkle Bank</p>
+                    <p className="text-3xl md:text-4xl font-extrabold font-kid">{profile?.points || 0}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase tracking-widest font-bold text-white/70">Pocket Money</p>
+                    <p className="text-xl md:text-2xl font-extrabold font-kid text-kid-accent">${((profile?.points || 0) / 100).toFixed(2)}</p>
+                  </div>
+                </div>
               </div>
-              
-              <div className="mt-4 bg-white/10 backdrop-blur-md px-4 py-1.5 rounded-xl text-sm font-bold text-teal-50 flex items-center gap-1.5 border border-white/15 shadow-inner">
-                <span>Equivalent Earnings:</span>
-                <span className="text-base text-white">{((profile?.points ?? 0) / (family?.takaConversionRate || 1)).toFixed(0)}৳</span>
-              </div>
-              
-              <h2 className="mt-5 text-xl font-bold text-teal-50 ui-title">
-                Keep up the great work, {profile?.displayName}!
-              </h2>
-              <p className="mt-2 text-sm text-teal-100/80 max-w-md">
-                Complete quests assigned by your parents to earn more points.
-                Spend points to unlock family rewards!
-              </p>
             </section>
 
-            {/* Rating and Behavior Status */}
-            <section className="grid gap-6 sm:grid-cols-2">
-              {/* Profile Rating */}
-              <div className="ui-panel p-5 bg-white flex flex-col justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Profile Rating</span>
-                  {(() => {
-                    const completed = tasks.filter(t => t.status === "COMPLETED").length;
-                    const active = tasks.filter(t => t.status === "ACTIVE").length;
-                    const total = completed + active;
-                    const rate = total > 0 ? (completed / total) : 1;
-                    
-                    let stars = 5;
-                    let title = "Super Kid";
-                    if (total > 0) {
-                      if (rate >= 0.9) { stars = 5; title = "Super Kid"; }
-                      else if (rate >= 0.75) { stars = 4; title = "Rising Hero"; }
-                      else if (rate >= 0.5) { stars = 3; title = "Helper Kid"; }
-                      else if (rate >= 0.25) { stars = 2; title = "Explorer"; }
-                      else { stars = 1; title = "Beginner"; }
-                    }
-                    
-                    return (
-                      <div className="mt-2">
-                        <div className="flex gap-0.5">
-                          {[1,2,3,4,5].map((s) => (
-                            <Star key={s} className={`w-5 h-5 ${s <= stars ? "text-amber-500 fill-amber-500" : "text-slate-200"}`} />
-                          ))}
+            {/* Main Columns */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Left Column */}
+              <div className="lg:col-span-7 space-y-6">
+                <section>
+                  <div className="flex justify-between items-end px-2 mb-4">
+                    <h3 className="text-lg font-bold text-parent-brand font-kid">Daily quests</h3>
+                    <button className="text-xs font-bold text-parent-accent hover:text-indigo-800 transition-colors">
+                      + Create my own mission
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    {/* Placeholder Active Quest */}
+                    <div className="p-4 rounded-3xl border border-slate-200 bg-white shadow-sm flex justify-between items-center group">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 flex items-center justify-center text-xl">🧺</div>
+                        <div className="flex flex-col gap-0.5">
+                          <h4 className="text-sm font-bold text-parent-brand">Help with laundry</h4>
                         </div>
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-700 mt-2 block">
-                          {title} Status
-                        </span>
-                        <p className="text-slate-500 text-xs mt-1">
-                          You completed {completed} out of {total} assigned quests ({total > 0 ? Math.round(rate * 100) : 100}% completion rate).
-                        </p>
                       </div>
-                    );
-                  })()}
-                </div>
+                      <span className="text-sm font-extrabold text-parent-accent">+50</span>
+                    </div>
+
+                    {/* Placeholder Completed Quest */}
+                    <div className="p-4 rounded-3xl border border-slate-100 bg-slate-50 flex justify-between items-center group">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-emerald-400 text-white flex items-center justify-center">
+                          <CheckCircle2 className="w-5 h-5" />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <h4 className="text-sm font-bold text-slate-400 line-through">Water the plants</h4>
+                        </div>
+                      </div>
+                      <span className="text-sm font-extrabold text-slate-400">+15</span>
+                    </div>
+                  </div>
+                </section>
               </div>
 
-              {/* Behavior Status */}
-              <div className="ui-panel p-5 bg-white flex flex-col justify-between">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Behavior Status</span>
-                  {(() => {
-                    const bStatus = profile?.behaviorStatus || "good";
-                    const colors = {
-                      excellent: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-                      good: "bg-teal-50 text-teal-700 border border-teal-200",
-                      average: "bg-amber-50 text-amber-700 border border-amber-200",
-                      needs_improvement: "bg-rose-50 text-rose-700 border border-rose-200",
-                    };
-                    const labels = {
-                      excellent: "🌟 Excellent Behavior!",
-                      good: "👍 Good Behavior",
-                      average: "😐 Average Behavior",
-                      needs_improvement: "⚠️ Needs Work",
-                    };
-                    const descriptions = {
-                      excellent: "Incredible! Your parent marked your behavior as outstanding. Keep shining!",
-                      good: "Great job! Keep showing positive behavior around the household.",
-                      average: "Doing okay! Keep trying to help out and listen to earn extra praise.",
-                      needs_improvement: "Remember to follow household rules and listen to your parents. You can do better!",
-                    };
-                    return (
-                      <div className="mt-2">
-                        <span className={`ui-pill text-xs font-bold px-3 py-1 inline-block ${colors[bStatus]}`}>
-                          {labels[bStatus]}
-                        </span>
-                        <p className="text-slate-500 text-xs mt-3 leading-relaxed">
-                          {descriptions[bStatus]}
-                        </p>
+              {/* Right Column */}
+              <div className="lg:col-span-5 space-y-6">
+                {/* Weekly Streak Placeholder */}
+                <section className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm min-h-[200px] flex flex-col justify-between">
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Weekly streak</p>
+                  </div>
+                  <div className="flex justify-between items-end px-4 mt-12">
+                    {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => (
+                      <span key={i} className="text-[10px] font-bold text-slate-400">{day}</span>
+                    ))}
+                  </div>
+                </section>
+                
+                {/* Preset Task Library Placeholder */}
+                <section className="bg-purple-50 p-6 rounded-3xl border border-purple-100 shadow-sm">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-4">Preset task library</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { title: "Read 20 mins", freq: "Daily", pts: 15, icon: "📚" },
+                      { title: "Help with laundry", freq: "Weekly", pts: 50, icon: "🧺" },
+                      { title: "Eat all vegetables", freq: "Daily", pts: 20, icon: "🥦" },
+                      { title: "Take out the trash", freq: "Weekly", pts: 30, icon: "🗑️" },
+                    ].map((preset, idx) => (
+                      <div key={idx} className="p-3 rounded-2xl bg-white border border-slate-100 flex flex-col gap-2">
+                        <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-lg">{preset.icon}</div>
+                        <div>
+                          <h4 className="text-xs font-bold text-parent-brand leading-tight">{preset.title}</h4>
+                          <p className="text-[10px] text-slate-400 font-medium mt-0.5">{preset.freq} · {preset.pts} pts</p>
+                        </div>
                       </div>
-                    );
-                  })()}
-                </div>
+                    ))}
+                  </div>
+                </section>
+                
+                {/* Next Reward Unlock Placeholder */}
+                <section className="bg-amber-50 p-6 rounded-3xl border border-amber-100 shadow-sm">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-kid-accent flex items-center justify-center text-xl shadow-sm shadow-amber-200">
+                      🎁
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-parent-brand">Next reward unlock</h4>
+                      <p className="text-xs text-slate-500 font-medium">At 1,500 sparkle points</p>
+                    </div>
+                  </div>
+                  
+                  <div className="w-full bg-amber-100 h-2 rounded-full overflow-hidden mb-2">
+                    <div className="h-full bg-kid-accent rounded-full w-[70%]"></div>
+                  </div>
+                  <p className="text-xs font-bold text-slate-500">520 points to go — that's $5.20!</p>
+                </section>
               </div>
-            </section>
+            </div>
 
             {/* Custom Quest Suggestion Box */}
             <section className="ui-panel p-6 bg-white space-y-4">
@@ -753,7 +709,8 @@ export default function ChildDashboard() {
             </div>
           </div>
         )}
-      </main>
+        </div>
+      </div>
     </div>
   );
 }
