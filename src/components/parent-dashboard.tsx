@@ -68,6 +68,7 @@ export default function ParentDashboard() {
   const [addChildSubmitting, setAddChildSubmitting] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedOverviewKidEmail, setSelectedOverviewKidEmail] = useState<string | null>(null);
 
   // --- Family Creation States ---
   const [newFamilyName, setNewFamilyName] = useState("");
@@ -571,9 +572,10 @@ export default function ParentDashboard() {
     }
   };
 
-  const handleAssignTask = async (title: string, points: number) => {
-    if (!familyIdToUse || !selectedChild) return;
-    const selectedChildUser = childUsers.find(u => u.email === selectedChild.email);
+  const handleAssignTask = async (title: string, points: number, targetChildOverride?: ChildProfile | null) => {
+    const targetChild = targetChildOverride || selectedChild;
+    if (!familyIdToUse || !targetChild) return;
+    const targetChildUser = childUsers.find(u => u.email === targetChild.email);
     try {
       const taskRef = doc(collection(db, "tasks"));
       const newTask: Task = {
@@ -581,8 +583,8 @@ export default function ParentDashboard() {
         title,
         points,
         familyId: familyIdToUse,
-        childEmail: selectedChild.email,
-        childId: selectedChildUser?.id || null,
+        childEmail: targetChild.email,
+        childId: targetChildUser?.id || null,
         status: "ACTIVE",
         requestedBy: "parent",
         createdAt: serverTimestamp(),
@@ -730,14 +732,13 @@ export default function ParentDashboard() {
   }
 
   return (
-    <div className="ui-app-bg min-h-screen flex flex-col md:flex-row">
+    <div className="ui-app-bg min-h-screen flex flex-col items-center gap-4 md:py-6 bg-slate-50/50 px-4">
+      {/* Boxed Header */}
+      <div className="w-full max-w-[1400px] mx-auto bg-white md:rounded-3xl shadow-sm border border-slate-200/60 flex flex-col relative z-20">
       {/* Mobile Navbar */}
       <header className="md:hidden border-b border-slate-200/80 bg-white/90 backdrop-blur-md px-6 py-4 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center gap-2">
-          <span className="text-2xl">Quest</span>
-          <span className="text-xs uppercase tracking-[0.25em] font-bold text-teal-700">
-            Parent
-          </span>
+          <span className="text-2xl font-bold ui-title text-slate-900">StellarSteps</span>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -750,36 +751,13 @@ export default function ParentDashboard() {
         </div>
       </header>
 
-      {/* Sidebar Navigation */}
+      {/* Mobile-only Sidebar Navigation */}
       <aside
         className={`${
           mobileMenuOpen ? "flex" : "hidden"
-        } md:flex flex-col w-full md:w-64 border-r border-slate-200/80 bg-white/90 backdrop-blur-md p-6 fixed md:sticky top-[60px] md:top-0 h-[calc(100vh-60px)] md:h-screen z-30 transition-all`}
+        } md:hidden flex-col w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-md p-6 fixed top-[60px] h-[calc(100vh-60px)] z-30 transition-all`}
       >
-        {/* Brand Header */}
-        <div className="hidden md:flex flex-col gap-1 mb-8">
-          <span className="text-xs uppercase tracking-[0.25em] font-bold text-teal-700">
-            Family Quest
-          </span>
-        </div>
-
-
-
         <nav className="flex-1 space-y-1">
-          <button
-            onClick={() => {
-              setActiveTab("overview");
-              setMobileMenuOpen(false);
-            }}
-            className={`w-full py-3 px-4 rounded-xl text-left text-sm font-semibold flex items-center gap-3 transition-all cursor-pointer ${
-              activeTab === "overview"
-                ? "bg-teal-50 border-l-4 border-teal-600 text-teal-800 shadow-sm"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-4 border-transparent"
-            }`}
-          >
-            <LayoutDashboard className="w-4 h-4 flex-shrink-0" />
-            <span>Overview</span>
-          </button>
           <button
             onClick={() => {
               setActiveTab("families");
@@ -832,110 +810,383 @@ export default function ParentDashboard() {
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-4 md:p-8 max-w-5xl w-full mx-auto space-y-6 md:space-y-8 overflow-y-auto">
         {/* Desktop Topbar */}
-        <div className="hidden md:flex justify-end items-center gap-4 border-b border-slate-100/60 pb-4 mb-2">
-          <NotificationCenter />
-        </div>
-
-        {/* Dynamic Tab Render */}
-        {activeTab === "overview" && (
-          <div className="space-y-6 md:space-y-8 enter-rise">
-            {/* Greeting Header */}
-            <section className="ui-panel p-6 md:p-8 bg-gradient-to-br from-teal-50/50 to-cyan-50/30">
-              <p className="text-xs uppercase tracking-wider font-bold text-teal-800">
-                Welcome Back
-              </p>
-              <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 ui-title mt-1">
-                Hello, {profile?.displayName}!
+        <div className="hidden md:flex justify-between items-center gap-4 px-8 py-4 w-full">
+          {/* Logo linked to Overview */}
+          <div 
+            onClick={() => setActiveTab("overview")}
+            className="flex flex-col gap-0.5 cursor-pointer group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-kid-brand flex items-center justify-center shadow-lg shadow-purple-200 group-hover:scale-105 transition-transform">
+                <span className="text-white font-extrabold text-lg font-kid">S</span>
+              </div>
+              <h2 className="text-2xl font-bold text-parent-brand tracking-tight font-kid">
+                StellarSteps
               </h2>
-              <p className="mt-2 text-slate-600 max-w-2xl leading-relaxed text-sm md:text-base">
-                Welcome to your parent control dashboard. Here you can configure rewards,
-                manage children profiles, and oversee household tasks.
-              </p>
-            </section>
-
-            {/* Quick Metrics Cards */}
-            <section className="grid gap-4 sm:grid-cols-3">
-              <div className="ui-panel p-5 bg-white flex flex-col justify-between min-h-[120px]">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Household Kids
-                  </span>
-                  <Users className="w-5 h-5 text-slate-400" />
-                </div>
-                <div className="mt-2">
-                  <div className="text-3xl font-extrabold text-slate-900 ui-title">
-                    {children.length}
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Pre-approved child profiles
-                  </p>
-                </div>
-              </div>
-
-              <div className="ui-panel p-5 bg-white flex flex-col justify-between min-h-[120px]">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Total Child Points
-                  </span>
-                  <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
-                </div>
-                <div className="mt-2">
-                  <div className="text-3xl font-extrabold text-slate-900 ui-title">
-                    {childUsers.reduce((acc, curr) => acc + (curr.points || 0), 0)}
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Currently held by children
-                  </p>
-                </div>
-              </div>
-
-              <div className="ui-panel p-5 bg-white flex flex-col justify-between min-h-[120px]">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                    Household Status
-                  </span>
-                  <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                </div>
-                <div className="mt-2">
-                  <div className="text-xl font-bold text-emerald-800 flex items-center gap-1.5">
-                    Active Group
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Ready for task quests
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            {/* Dashboard Visual Chart Mock (SVG based for maximum visual polish) */}
-            <section className="ui-panel p-6 bg-white space-y-4">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 ui-title">
-                  Weekly Family Quest Activity
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Total points earned by children over the last week
-                </p>
-              </div>
-              <div className="h-48 w-full flex items-end justify-between gap-2 pt-6">
-                {[40, 60, 25, 80, 50, 95, 75].map((val, idx) => (
-                  <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
-                    <div
-                      className="w-full bg-gradient-to-t from-teal-500 to-cyan-400 rounded-t-lg transition-all duration-500 hover:brightness-110"
-                      style={{ height: `${val}%` }}
-                    ></div>
-                    <span className="text-xs text-slate-400 font-bold uppercase">
-                      {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][idx]}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
+            </div>
+            <p className="text-slate-500 text-sm ml-13">
+              Family progress ecosystem
+            </p>
           </div>
-        )}
+
+          {/* Right Navigation */}
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => setActiveTab("families")}
+              className={`text-sm font-semibold cursor-pointer transition-colors ${activeTab === "families" ? "text-teal-600" : "text-slate-500 hover:text-slate-900"}`}
+            >
+              Families
+            </button>
+            <div className="w-px h-4 bg-slate-200"></div>
+            <NotificationCenter />
+            <div className="flex items-center gap-3 pl-2 border-l border-slate-200">
+              <button 
+                onClick={() => setActiveTab("profile")}
+                className="flex items-center gap-2 hover:opacity-80 transition-opacity cursor-pointer group"
+                title="View Profile"
+              >
+                <div className="w-8 h-8 bg-teal-50 text-teal-700 rounded-full flex items-center justify-center font-bold text-xs group-hover:ring-2 group-hover:ring-teal-500/30">
+                  {profile?.displayName?.[0]?.toUpperCase() || <User className="w-4 h-4" />}
+                </div>
+                <span className="text-sm font-bold text-slate-800 group-hover:text-teal-600 transition-colors">
+                  Hi Parent, {profile?.displayName?.split(" ")[0]}
+                </span>
+              </button>
+
+              <button onClick={logout} className="ml-1 text-sm font-bold cursor-pointer text-slate-400 hover:text-red-600 transition-colors" title="Logout">
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Boxed Main Content */}
+      <div className="w-full max-w-[1400px] mx-auto bg-white md:min-h-[calc(100vh-140px)] md:rounded-[2.5rem] shadow-sm border border-slate-200/60 flex flex-col relative overflow-hidden">
+
+      {/* Main Content Area */}
+      <main className="flex-1 p-4 md:p-8 max-w-7xl w-full mx-auto space-y-6 md:space-y-8 overflow-y-auto">
+        {/* Dynamic Tab Render */}
+        {/* Dynamic Tab Render */}
+        {activeTab === "overview" && (() => {
+          const selectedOverviewKid = children.length > 0
+            ? (children.find(c => selectedOverviewKidEmail ? c.email.toLowerCase() === selectedOverviewKidEmail.toLowerCase() : false) || children[0])
+            : null;
+          const overviewKidTasks = selectedOverviewKid
+            ? tasks.filter(t => t.childEmail.toLowerCase() === selectedOverviewKid.email.toLowerCase())
+            : [];
+
+          return (
+            <div className="max-w-6xl mx-auto enter-rise">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Left Column */}
+                <div className="lg:col-span-7 space-y-6">
+                  {/* Family Analytics Section */}
+                  <section className="space-y-4">
+                    <div className="flex justify-between items-end px-2">
+                      <h3 className="text-lg font-bold text-parent-brand font-kid">Family analytics</h3>
+                      <span className="text-xs font-bold text-parent-accent uppercase tracking-wider">Real-time sync</span>
+                    </div>
+
+                    {/* Chart Card */}
+                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm min-h-[240px] flex flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-start mb-2">
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Completion this week</p>
+                          <div className="flex gap-4">
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded-full bg-kid-brand"></div>
+                              <span className="text-xs font-semibold text-slate-500">Leo</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-2.5 h-2.5 rounded-full bg-parent-accent"></div>
+                              <span className="text-xs font-semibold text-slate-500">Maya</span>
+                            </div>
+                          </div>
+                        </div>
+                        <h4 className="text-3xl font-extrabold text-parent-brand font-kid tracking-tight">+14% vs last week</h4>
+                      </div>
+
+                      {/* Chart Placeholder */}
+                      <div className="flex justify-between items-end px-4 mt-12">
+                        {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => (
+                          <span key={i} className="text-[10px] font-bold text-slate-400">{day}</span>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Kid Cards Row */}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      {children.length === 0 ? (
+                        <p className="text-sm text-slate-500">No kids added yet.</p>
+                      ) : (
+                        children.map((child, idx) => {
+                          const cUser = childUsers.find(u => u.email.toLowerCase() === child.email.toLowerCase());
+                          const pts = cUser?.points || 0;
+                          const level = Math.floor(pts / 100) + 1;
+                          const titles = ["Beginner", "Explorer", "Stargazer", "Achiever", "Superstar"];
+                          const kidTitle = titles[Math.min(Math.floor((level - 1) / 3), titles.length - 1)];
+                          
+                          // Calculate kid progress
+                          const kidTasks = tasks.filter(t => t.childEmail.toLowerCase() === child.email.toLowerCase());
+                          const completedTasksCount = kidTasks.filter(t => t.status === "COMPLETED").length;
+                          const totalTasksCount = kidTasks.length;
+                          const defaultProgress = [25, 33, 50, 100, 57, 75];
+                          const progressVal = totalTasksCount > 0 
+                            ? Math.round((completedTasksCount / totalTasksCount) * 100) 
+                            : defaultProgress[idx % defaultProgress.length];
+                          const progress = `${progressVal}%`;
+
+                          // Color themes per kid profile
+                          const themes = [
+                            {
+                              avatar: "bg-indigo-100 text-indigo-700",
+                              barHex: "#4f46e5",
+                              borderHex: "#4f46e5",
+                              text: "text-indigo-600"
+                            },
+                            {
+                              avatar: "bg-purple-100 text-purple-700",
+                              barHex: "#9333ea",
+                              borderHex: "#9333ea",
+                              text: "text-purple-600"
+                            },
+                            {
+                              avatar: "bg-emerald-100 text-emerald-700",
+                              barHex: "#059669",
+                              borderHex: "#059669",
+                              text: "text-emerald-600"
+                            },
+                            {
+                              avatar: "bg-amber-100 text-amber-700",
+                              barHex: "#d97706",
+                              borderHex: "#d97706",
+                              text: "text-amber-600"
+                            },
+                            {
+                              avatar: "bg-sky-100 text-sky-700",
+                              barHex: "#0284c7",
+                              borderHex: "#0284c7",
+                              text: "text-sky-600"
+                            }
+                          ];
+                          const theme = themes[idx % themes.length];
+                          
+                          const isSelected = selectedOverviewKid
+                            ? selectedOverviewKid.email.toLowerCase() === child.email.toLowerCase()
+                            : idx === 0;
+
+                          const cardShadow = isSelected
+                            ? "shadow-xl hover:shadow-sm"
+                            : "shadow-none hover:shadow-xs";
+                          
+                          return (
+                            <div 
+                              key={idx} 
+                              onClick={() => setSelectedOverviewKidEmail(child.email)}
+                              style={{ borderColor: isSelected ? theme.borderHex : "#e2e8f0" }}
+                              className={`bg-white p-4 rounded-3xl border transition-all cursor-pointer group flex flex-col justify-center gap-3 ${cardShadow}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold font-kid text-lg ${theme.avatar}`}>
+                                    {child.name[0]?.toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <h4 className="text-sm font-bold text-parent-brand">{child.name}</h4>
+                                    <p className="text-[10px] text-slate-400 font-medium">
+                                      Level {level} · {kidTitle}
+                                    </p>
+                                  </div>
+                                </div>
+                                <span className={`text-xs font-extrabold ${isSelected ? theme.text : "text-emerald-500"}`}>{progress}</span>
+                              </div>
+                              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full rounded-full transition-all duration-300" 
+                                  style={{ width: progress, backgroundColor: theme.barHex }}
+                                ></div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </section>
+
+                  {/* Kid's Assignments Section (Under Kids Profile with Progress) */}
+                  <section className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                    <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-lg font-bold text-parent-brand font-kid">
+                        {selectedOverviewKid ? `${selectedOverviewKid.name}'s assignments` : "Kid's assignments"}
+                      </h3>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                        {overviewKidTasks.length} TASKS
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      {overviewKidTasks.length === 0 ? (
+                        <div className="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100 border-dashed">
+                          <p className="text-sm text-slate-500 font-medium">No assignments yet for {selectedOverviewKid?.name || "this kid"}.</p>
+                          <p className="text-xs text-slate-400 mt-1">Assign a quest from the Task library on the right!</p>
+                        </div>
+                      ) : (
+                        overviewKidTasks.map((task, idx) => {
+                          let statusText = "Assigned";
+                          if (task.status === "COMPLETED") statusText = "Completed";
+                          if (task.status === "PENDING_APPROVAL") statusText = "Awaiting approval";
+
+                          const getIcon = (title: string, i: number) => {
+                            const t = title.toLowerCase();
+                            if (t.includes("math") || t.includes("practice") || t.includes("hw") || t.includes("read")) return "🔢";
+                            if (t.includes("laundry") || t.includes("clean") || t.includes("room")) return "🧺";
+                            if (t.includes("water") || t.includes("plant") || t.includes("veg")) return "🪴";
+                            if (t.includes("trash")) return "🗑️";
+                            const list = ["🪄", "🐠", "📚", "🧹", "🥦", "🗑️"];
+                            return list[i % list.length];
+                          };
+
+                          return (
+                            <div key={task.id} className="p-3.5 rounded-2xl bg-slate-50/60 hover:bg-slate-50 transition-all flex justify-between items-center group">
+                              <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-2xl bg-white shadow-xs border border-slate-100 flex items-center justify-center text-xl flex-shrink-0">
+                                  {getIcon(task.title, idx)}
+                                </div>
+                                <div>
+                                  <h4 className="text-sm font-bold text-parent-brand">{task.title}</h4>
+                                  <p className="text-xs text-slate-400 font-medium mt-0.5">{statusText}</p>
+                                </div>
+                              </div>
+                              <span className="text-sm font-extrabold text-parent-accent">+{task.points}</span>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </section>
+                </div>
+
+                {/* Right Column (Sidebar) */}
+                <div className="lg:col-span-5 space-y-6">
+                  {/* Task Library */}
+                  <section>
+                    <div className="flex justify-between items-center flex-wrap gap-4 mb-4 px-2">
+                      <h3 className="text-lg font-bold text-parent-brand font-kid">Task library</h3>
+                      <button className="text-xs font-bold text-parent-accent hover:text-indigo-800 transition-colors">
+                        Manage presets
+                      </button>
+                    </div>
+                    
+                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col gap-4">
+                      <div className="grid gap-2">
+                        {[
+                          { title: "Read 20 mins", freq: "DAILY", pts: "15", icon: "📚", color: "bg-blue-50" },
+                          { title: "Help with laundry", freq: "WEEKLY", pts: "50", icon: "🧺", color: "bg-rose-50" },
+                          { title: "Eat all vegetables", freq: "DAILY", pts: "20", icon: "🥦", color: "bg-green-50" },
+                          { title: "Take out the trash", freq: "WEEKLY", pts: "30", icon: "🗑️", color: "bg-orange-50" },
+                        ].map((preset, idx) => (
+                          <div key={idx} className="p-3 rounded-2xl hover:bg-slate-50 transition-all flex justify-between items-center cursor-pointer group">
+                            <div className="flex items-center gap-4">
+                              <div className={`w-12 h-12 rounded-2xl ${preset.color} flex items-center justify-center text-xl`}>
+                                {preset.icon}
+                              </div>
+                              <div className="flex flex-col gap-0.5">
+                                <h4 className="text-sm font-bold text-parent-brand">{preset.title}</h4>
+                                <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">
+                                  {preset.freq} · {preset.pts} PTS
+                                </p>
+                              </div>
+                            </div>
+                            <button 
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                if (selectedOverviewKid) {
+                                  handleAssignTask(preset.title, parseInt(preset.pts, 10), selectedOverviewKid);
+                                }
+                              }}
+                              className="px-4 py-1.5 rounded-full bg-parent-accent/10 text-parent-accent text-xs font-bold hover:bg-parent-accent hover:text-white transition-colors cursor-pointer"
+                            >
+                              ASSIGN
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      <button 
+                        onClick={() => {
+                          if (selectedOverviewKid) {
+                            handleSelectChild(selectedOverviewKid);
+                          }
+                        }}
+                        className="w-full py-4 rounded-2xl border-2 border-dashed border-slate-200 text-slate-500 font-bold text-sm hover:border-parent-accent hover:text-parent-accent transition-colors flex justify-center items-center gap-2 cursor-pointer"
+                      >
+                        + Create custom task
+                      </button>
+                    </div>
+                  </section>
+
+                  {/* Approval Inbox in Right Sidebar */}
+                  <section className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                    <div className="flex justify-between items-start mb-6">
+                      <div>
+                        <h3 className="text-lg font-bold text-parent-brand font-kid">Approval inbox</h3>
+                        <p className="text-xs text-slate-400 font-medium mt-1">Review completed and kid-created tasks</p>
+                      </div>
+                      {tasks.filter(t => t.status === "PENDING_APPROVAL").length > 0 && (
+                        <div className="w-6 h-6 rounded-full bg-rose-100 flex items-center justify-center text-xs font-bold text-rose-600">
+                          {tasks.filter(t => t.status === "PENDING_APPROVAL").length}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {tasks.filter(t => t.status === "PENDING_APPROVAL").length === 0 ? (
+                        <div className="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100 border-dashed">
+                          <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                          <p className="text-sm text-slate-500 font-medium">All caught up! No tasks pending approval.</p>
+                        </div>
+                      ) : (
+                        tasks.filter(t => t.status === "PENDING_APPROVAL").map((task, idx) => {
+                          const child = children.find(c => c.email === task.childEmail);
+                          const isLeo = idx % 2 === 0;
+                          const colorClass = isLeo ? "bg-kid-accent/20 text-amber-700" : "bg-purple-100 text-purple-700";
+                          
+                          return (
+                            <div key={task.id} className="flex justify-between items-center gap-4 flex-wrap">
+                              <div className="flex items-center gap-4">
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold font-kid text-lg ${colorClass}`}>
+                                  {child?.name[0]?.toUpperCase() || "K"}
+                                </div>
+                                <div>
+                                  <p className="text-sm text-parent-brand font-bold">
+                                    {child?.name || "Someone"} completed "{task.title}"
+                                  </p>
+                                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                                    {task.requestedBy === "child" ? "Custom task created by kid" : "Preset task"} · +{task.points} pts
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-4">
+                                <button onClick={() => handleRejectTask(task)} className="text-xs font-bold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer">
+                                  Reject
+                                </button>
+                                <button onClick={() => handleApproveTask(task)} className="px-4 py-1.5 rounded-full text-xs font-bold transition-colors bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-200/60 cursor-pointer">
+                                  Approve +{task.points}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {activeTab === "families" && (
           selectedChild ? (
@@ -1181,111 +1432,72 @@ export default function ParentDashboard() {
                 </div>
               </section>
 
-              {/* Tasks / Quests Lists */}
-              <div className="space-y-6">
-                {/* Approval Queue */}
-                <div className="ui-panel p-6 bg-white space-y-4">
-                  <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider">
-                    Approval Queue ({tasks.filter(t => t.childEmail === selectedChild.email && t.status === "PENDING_APPROVAL").length})
-                  </h3>
-                  <div className="space-y-3">
-                    {tasks.filter(t => t.childEmail === selectedChild.email && t.status === "PENDING_APPROVAL").length === 0 ? (
-                      <p className="text-slate-400 text-xs text-center py-4">No quests pending approval.</p>
-                    ) : (
-                      tasks
-                        .filter(t => t.childEmail === selectedChild.email && t.status === "PENDING_APPROVAL")
-                        .map((task) => (
-                          <div key={task.id} className="p-4 border border-amber-100 bg-amber-50/30 rounded-xl flex justify-between items-center gap-4 flex-wrap">
-                            <div>
-                              <h4 className="text-sm font-bold text-slate-800">{task.title}</h4>
-                              <p className="text-xs text-slate-400 font-semibold flex items-center gap-1">Requested by child • {task.points} pts</p>
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleApproveTask(task)}
-                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-all"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => handleRejectTask(task)}
-                                className="px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 hover:bg-rose-100 rounded-lg text-xs font-bold cursor-pointer transition-all"
-                              >
-                                Reject
-                              </button>
-                            </div>
-                          </div>
-                        ))
-                    )}
-                  </div>
+              {/* Unified Assignments List */}
+              <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                <div className="flex justify-between items-end px-2">
+                  <h3 className="text-lg font-bold text-parent-brand font-kid">{selectedChild.name}'s assignments</h3>
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{tasks.filter(t => t.childEmail === selectedChild.email).length} TASKS</span>
                 </div>
-
-                {/* Active Quests */}
-                <div className="ui-panel p-6 bg-white space-y-4">
-                  <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider">
-                    Active Quests ({tasks.filter(t => t.childEmail === selectedChild.email && t.status === "ACTIVE").length})
-                  </h3>
-                  <div className="space-y-3">
-                    {tasks.filter(t => t.childEmail === selectedChild.email && t.status === "ACTIVE").length === 0 ? (
-                      <p className="text-slate-400 text-xs text-center py-4">No active quests.</p>
-                    ) : (
-                      tasks
-                        .filter(t => t.childEmail === selectedChild.email && t.status === "ACTIVE")
-                        .map((task) => (
-                          <div key={task.id} className="p-4 border border-slate-100 rounded-xl flex justify-between items-center gap-4 flex-wrap">
-                            <div>
-                              <h4 className="text-sm font-bold text-slate-800">{task.title}</h4>
-                              <span className="text-xs text-slate-400 font-semibold flex items-center gap-1.5">
-                                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                                {task.points} pts • {((task.points) / (family?.takaConversionRate || 1)).toFixed(0)}৳
-                              </span>
+                
+                <div className="grid gap-2">
+                  {tasks.filter(t => t.childEmail === selectedChild.email).length === 0 ? (
+                    <div className="text-center py-8 bg-slate-50 rounded-2xl border border-slate-100 border-dashed">
+                      <p className="text-sm text-slate-500 font-medium">No assignments yet. Assign a quest above!</p>
+                    </div>
+                  ) : (
+                    tasks
+                      .filter(t => t.childEmail === selectedChild.email)
+                      .sort((a, b) => {
+                        const statusOrder = { PENDING_APPROVAL: 0, ACTIVE: 1, COMPLETED: 2 };
+                        const orderA = statusOrder[a.status as keyof typeof statusOrder] ?? 3;
+                        const orderB = statusOrder[b.status as keyof typeof statusOrder] ?? 3;
+                        if (orderA !== orderB) return orderA - orderB;
+                        return ((b.createdAt as any)?.seconds || 0) - ((a.createdAt as any)?.seconds || 0);
+                      })
+                      .map((task, idx) => {
+                        const iconList = ["🪄", "🐠", "📚", "🧹", "🥦", "🗑️"];
+                        const icon = iconList[idx % iconList.length];
+                        const pointsColor = task.status === "COMPLETED" ? "text-parent-accent" : "text-parent-accent";
+                        let statusText = "Assigned";
+                        if (task.status === "COMPLETED") statusText = "Completed";
+                        if (task.status === "PENDING_APPROVAL") statusText = "Awaiting approval";
+                        
+                        return (
+                          <div key={task.id} className="p-3 rounded-2xl hover:bg-slate-50 transition-all flex justify-between items-center group">
+                            <div className="flex items-center gap-4">
+                              <div className="w-8 h-8 flex items-center justify-center text-xl">
+                                {icon}
+                              </div>
+                              <div className="flex flex-col gap-0.5">
+                                <h4 className="text-sm font-bold text-parent-brand">{task.title}</h4>
+                                <p className="text-xs text-slate-400 font-medium">{statusText}</p>
+                              </div>
                             </div>
-                            <button
-                              onClick={() => handleCompleteTask(task)}
-                              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center gap-1"
-                            >
-                              <CheckCircle2 className="w-4 h-4" />
-                              <span>Complete & Reward</span>
-                            </button>
-                          </div>
-                        ))
-                    )}
-                  </div>
-                </div>
-
-                {/* Completed Quests */}
-                <div className="ui-panel p-6 bg-white space-y-4">
-                  <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider">
-                    Completed Quests ({tasks.filter(t => t.childEmail === selectedChild.email && t.status === "COMPLETED").length})
-                  </h3>
-                  <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
-                    {tasks.filter(t => t.childEmail === selectedChild.email && t.status === "COMPLETED").length === 0 ? (
-                      <p className="text-slate-400 text-xs text-center py-4">No completed quests yet.</p>
-                    ) : (
-                      tasks
-                        .filter(t => t.childEmail === selectedChild.email && t.status === "COMPLETED")
-                        .sort((a, b) => {
-                          const tA = (a.completedAt || a.updatedAt) as any;
-                          const tB = (b.completedAt || b.updatedAt) as any;
-                          const sA = tA?.seconds || 0;
-                          const sB = tB?.seconds || 0;
-                          return sB - sA;
-                        })
-                        .map((task) => (
-                          <div key={task.id} className="p-3 bg-slate-50 border border-slate-100 rounded-lg flex justify-between items-center gap-4 text-xs">
-                            <div>
-                              <h4 className="font-semibold text-slate-700 line-through">{task.title}</h4>
-                              <p className="text-[10px] text-slate-400">
-                                Rewarded {task.points} pts ({((task.points) / (family?.takaConversionRate || 1)).toFixed(0)}৳)
-                              </p>
+                            
+                            <div className="flex items-center gap-4">
+                              <span className={`text-sm font-extrabold ${pointsColor}`}>+{task.points}</span>
+                              
+                              {/* Quick actions on hover for parents */}
+                              {task.status === "ACTIVE" && (
+                                <button
+                                  onClick={() => handleCompleteTask(task)}
+                                  className="opacity-0 group-hover:opacity-100 w-6 h-6 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center hover:bg-emerald-100 hover:text-emerald-600 transition-all absolute right-4"
+                                  title="Mark Complete"
+                                >
+                                  <CheckCircle2 className="w-3 h-3" />
+                                </button>
+                              )}
+                              {task.status === "PENDING_APPROVAL" && (
+                                <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 absolute right-4 transition-all">
+                                  <button onClick={() => handleApproveTask(task)} className="px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[10px] font-bold">Approve</button>
+                                  <button onClick={() => handleRejectTask(task)} className="px-2 py-1 rounded bg-slate-100 text-slate-600 text-[10px] font-bold">Reject</button>
+                                </div>
+                              )}
                             </div>
-                            <span className="text-emerald-600 font-bold flex items-center gap-0.5">
-                              ✓ Earned
-                            </span>
                           </div>
-                        ))
-                    )}
-                  </div>
+                        );
+                      })
+                  )}
                 </div>
               </div>
             </div>
@@ -1729,6 +1941,7 @@ export default function ParentDashboard() {
       </main>
 
       {/* Kid Detail View Modal removed - now using full view */}
+      </div>
     </div>
   );
 }
