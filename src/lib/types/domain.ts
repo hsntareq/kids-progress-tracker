@@ -43,6 +43,7 @@ export interface Task {
   childId?: string | null;
   status: "ACTIVE" | "PENDING_APPROVAL" | "COMPLETED";
   requestedBy: "parent" | "child";
+  scheduledDate?: string;
   createdAt: unknown;
   updatedAt: unknown;
   completedAt?: unknown;

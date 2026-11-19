@@ -16,27 +16,36 @@ import {
   serverTimestamp
 } from "firebase/firestore";
 import type { Family, Task } from "@/lib/types/domain";
-import NotificationCenter from "@/components/notifications";
 import { playQuestSuccessSound } from "@/lib/utils/sound";
 import {
-  Star,
-  Settings,
-  User,
-  LogOut,
-  Menu,
   ClipboardList,
-  Gift,
   Volume2,
   Bell,
   Award,
   Plus,
   CheckCircle2,
   Clock,
-  Coins
+  Sparkles,
+  Star,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
+import ProgressAnalyticsCard from "@/components/progress-analytics-card";
+import {
+  CelestialStarsGraphic,
+  QuestBannersGraphic,
+  CloudHillsGraphic,
+} from "@/components/ui/section-graphics";
+import { toDateString } from "@/lib/utils/analytics";
+import {
+  getQuestDateLabel,
+  getTaskScheduledDate,
+  shiftQuestDate,
+} from "@/lib/utils/task-dates";
 
 export default function ChildDashboard() {
-  const { user, profile, logout, memberships, switchProfile } = useAuth();
+  const { user, profile, logout } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const activeTab = (searchParams.get("page") || "overview") as "overview" | "settings" | "profile";
@@ -47,17 +56,19 @@ export default function ChildDashboard() {
     router.push(`/dashboard?${params.toString()}`);
   };
   const [family, setFamily] = useState<Family | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [childTheme, setChildTheme] = useState<"teal" | "purple" | "amber">("teal");
 
   // --- Task & Suggestion States ---
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [selectedQuestDate, setSelectedQuestDate] = useState(() => toDateString(new Date()));
   const [requestTitle, setRequestTitle] = useState("");
   const [requestPoints, setRequestPoints] = useState("10");
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
   const [showSuggestForm, setShowSuggestForm] = useState(false);
+  const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  const [completionError, setCompletionError] = useState<string | null>(null);
 
   // --- Fetch Family metadata (for Child) ---
   useEffect(() => {
@@ -112,6 +123,8 @@ export default function ChildDashboard() {
   // --- Child Task Actions ---
   const handleCompleteTask = async (task: Task) => {
     if (!profile || !profile.familyId) return;
+    setCompletingTaskId(task.id);
+    setCompletionError(null);
     try {
       // 1. Mark task completed
       await updateDoc(doc(db, "tasks", task.id), {
@@ -130,6 +143,9 @@ export default function ChildDashboard() {
       playQuestSuccessSound();
     } catch (err) {
       console.error("Error completing task:", err);
+      setCompletionError("We couldn’t save that just now. Please try again.");
+    } finally {
+      setCompletingTaskId(null);
     }
   };
 
@@ -160,6 +176,7 @@ export default function ChildDashboard() {
         childId: profile.id,
         status: "PENDING_APPROVAL",
         requestedBy: "child",
+        scheduledDate: selectedQuestDate,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
@@ -168,9 +185,9 @@ export default function ChildDashboard() {
       setRequestTitle("");
       setRequestPoints("10");
       setShowSuggestForm(false);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Error suggesting task:", err);
-      setRequestError(err.message || "Failed to suggest quest.");
+      setRequestError(err instanceof Error ? err.message : "Failed to suggest quest.");
     } finally {
       setRequestSubmitting(false);
     }
@@ -181,11 +198,26 @@ export default function ChildDashboard() {
     return null;
   }
 
-  const themeGradients = {
-    teal: "linear-gradient(to bottom right, #0d9488, #0f766e, #155e75)",
-    purple: "linear-gradient(to bottom right, #9333ea, #4f46e5, #5b21b6)",
-    amber: "linear-gradient(to bottom right, #f59e0b, #ea580c, #b91c1c)",
-  };
+  const points = profile.points || 0;
+  const level = Math.floor(points / 100) + 1;
+  const levelProgress = points % 100;
+  const pointsToNextLevel = 100 - levelProgress;
+  const todayQuestDate = toDateString(new Date());
+  const selectedQuestDayLabel = getQuestDateLabel(selectedQuestDate, todayQuestDate);
+  const isFutureQuestDate = selectedQuestDate > todayQuestDate;
+  const isPastQuestDate = selectedQuestDate < todayQuestDate;
+  const selectedDayTasks = tasks.filter(
+    (task) => getTaskScheduledDate(task) === selectedQuestDate
+  );
+  const activeTasks = selectedDayTasks.filter((task) => task.status === "ACTIVE");
+  const pendingTasks = selectedDayTasks.filter((task) => task.status === "PENDING_APPROVAL");
+  const completedTasks = selectedDayTasks
+    .filter((task) => task.status === "COMPLETED")
+    .sort((a, b) => {
+      const aTime = (a.completedAt as { seconds?: number } | null)?.seconds || 0;
+      const bTime = (b.completedAt as { seconds?: number } | null)?.seconds || 0;
+      return bTime - aTime;
+    });
 
   return (
     <div className="ui-app-bg min-h-screen flex flex-col items-center bg-slate-50 px-4 md:px-8 py-2 md:py-6">
@@ -200,8 +232,8 @@ export default function ChildDashboard() {
             </div>
             <span className="text-2xl font-bold text-parent-brand ui-title tracking-tight font-kid">StellarSteps</span>
           </div>
-          <p className="text-slate-500 text-sm ml-13 hidden md:block">
-            Family progress ecosystem
+          <p className="text-slate-600 text-sm ml-13 hidden md:block">
+            Your family adventure
           </p>
         </div>
 
@@ -211,7 +243,7 @@ export default function ChildDashboard() {
                 {profile?.displayName?.[0]?.toUpperCase() || "C"}
               </div>
               <span className="text-sm font-bold text-slate-800 hidden md:block">
-                Hi Child, {profile?.displayName?.split(" ")[0] || "Kid"}
+                Hi, {profile?.displayName?.split(" ")[0] || "Explorer"}
               </span>
             </div>
             <button onClick={logout} className="text-sm font-bold cursor-pointer text-slate-400 hover:text-red-600 transition-colors" title="Logout">
@@ -234,167 +266,234 @@ export default function ChildDashboard() {
             </button>
           </div>
           
-          <div className="px-4 py-1.5 rounded-full bg-kid-brand/10 text-kid-brand text-xs font-bold flex items-center gap-1.5">
+          <div className="px-4 py-1.5 rounded-full bg-violet-100 text-violet-900 text-xs font-bold flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-kid-accent"></span>
-            Level {Math.floor((profile?.points || 0) / 100) + 1}
+            Level {level}
           </div>
         </div>
 
         {/* Dynamic Tab Render */}
         {activeTab === "overview" && (
           <div className="space-y-6 md:space-y-8 enter-rise">
+            <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 md:px-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-800">
+                  <CalendarDays className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="text-sm font-bold text-slate-900">Browse quests by day</p>
+                  <p className="text-sm text-slate-700" aria-live="polite">
+                    {getQuestDateLabel(selectedQuestDate, todayQuestDate)}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedQuestDate((date) => shiftQuestDate(date, -1))}
+                  aria-label="Previous day"
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 text-slate-800 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700"
+                >
+                  <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                </button>
+                <label htmlFor="child-quest-date" className="sr-only">Choose a quest day</label>
+                <input
+                  id="child-quest-date"
+                  type="date"
+                  value={selectedQuestDate}
+                  onChange={(event) => {
+                    if (event.target.value) setSelectedQuestDate(event.target.value);
+                  }}
+                  className="h-11 max-w-[10rem] rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700"
+                />
+                {selectedQuestDate !== todayQuestDate && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedQuestDate(todayQuestDate)}
+                    className="min-h-11 rounded-xl px-3 text-sm font-bold text-violet-800 hover:bg-violet-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700"
+                  >
+                    Today
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedQuestDate((date) => shiftQuestDate(date, 1))}
+                  aria-label="Next day"
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 text-slate-800 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700"
+                >
+                  <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
+            </section>
+
             {/* Hero Card */}
             <section
-              className="bg-gradient-to-br from-[#8b5cf6] to-[#6366f1] p-6 md:p-8 rounded-[2rem] text-white shadow-lg shadow-purple-500/20 relative overflow-hidden"
+              className={`relative overflow-hidden rounded-2xl p-6 text-white md:p-8 ${
+                childTheme === "teal"
+                  ? "bg-teal-800"
+                  : childTheme === "purple"
+                    ? "bg-violet-800"
+                    : "bg-amber-800"
+              }`}
             >
-              <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none blur-2xl"></div>
-              <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-white/5 rounded-full translate-y-1/4 -translate-x-1/4 pointer-events-none blur-2xl"></div>
-
-              <div className="relative z-10">
-                <p className="text-[10px] uppercase tracking-widest font-bold text-white/70 mb-2">
-                  Today's Mission
-                </p>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h2 className="text-4xl md:text-5xl font-extrabold font-kid tracking-tight">
-                      Hi, {profile?.displayName || "Kid"}!
-                    </h2>
-                    <p className="text-sm text-white/90 mt-1 font-medium">
-                      2 quests left to reach the summit.
+              <CelestialStarsGraphic position="top" opacity="opacity-25" accentColor="#ffffff" />
+              <div className="relative z-10 grid gap-8 md:grid-cols-[1fr_auto] md:items-end">
+                <div>
+                  <p className="mb-2 flex items-center gap-2 text-sm font-bold text-violet-100">
+                    <Sparkles className="h-4 w-4" aria-hidden="true" />
+                    Your adventure
+                  </p>
+                  <h2 className="font-kid text-3xl font-bold leading-tight text-white md:text-4xl">
+                    Welcome, {profile.displayName?.split(" ")[0] || "Explorer"}!
+                  </h2>
+                  <p className="mt-2 text-base text-white">
+                    {isFutureQuestDate
+                      ? activeTasks.length > 0
+                        ? `${activeTasks.length} ${activeTasks.length === 1 ? "quest is" : "quests are"} planned for ${selectedQuestDayLabel}.`
+                        : `No quests are planned for ${selectedQuestDayLabel}.`
+                      : isPastQuestDate
+                        ? `Here’s what was planned for ${selectedQuestDayLabel}.`
+                        : activeTasks.length > 0
+                          ? `You have ${activeTasks.length} ${activeTasks.length === 1 ? "quest" : "quests"} ready when you are.`
+                          : "You’ve finished your quests for now. Nice work!"}
+                  </p>
+                  <div className="mt-7 max-w-xl">
+                    <div className="mb-2 flex items-center justify-between gap-3 text-sm font-semibold text-white">
+                      <span>Level {level} progress</span>
+                      <span>{levelProgress} / 100 stars</span>
+                    </div>
+                    <div
+                      className="h-3 overflow-hidden rounded-full bg-white/25"
+                      role="progressbar"
+                      aria-label={`Progress to level ${level + 1}`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={levelProgress}
+                    >
+                      <div
+                        className="h-full rounded-full bg-amber-300 transition-[width] duration-300 ease-out motion-reduce:transition-none"
+                        style={{ width: `${levelProgress}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-sm font-medium text-white">
+                      {pointsToNextLevel} more {pointsToNextLevel === 1 ? "star" : "stars"} to reach level {level + 1}
                     </p>
                   </div>
-                  <div className="text-4xl">🚀</div>
                 </div>
-
-                {/* Progress Bar */}
-                <div className="mt-12 mb-8 relative">
-                  <div className="flex justify-between text-[10px] font-bold text-white/70 mb-2 absolute right-0 -top-8">
-                    <div className="flex flex-col items-center">
-                      <span className="text-2xl mb-1">⛰️</span>
-                      <span className="bg-white/20 px-2 py-0.5 rounded-full">150 PTS</span>
-                    </div>
-                  </div>
-                  
-                  <div className="w-full bg-white/20 h-2 rounded-full overflow-hidden relative">
-                    <div className="h-full bg-kid-accent rounded-full w-[25%] relative"></div>
-                  </div>
-                  {/* Rocket Indicator */}
-                  <div className="absolute left-[25%] -translate-x-1/2 top-1/2 -translate-y-1/2 mt-1">
-                    <div className="w-8 h-8 rounded-full bg-kid-accent flex items-center justify-center text-sm shadow-md border-2 border-[#8b5cf6]">🚀</div>
-                  </div>
-                </div>
-
-                {/* Bottom Stats */}
-                <div className="flex justify-between items-end mt-4">
+                <div className="flex items-center gap-3 rounded-xl bg-white/15 px-5 py-4 md:min-w-44 md:flex-col md:items-start">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-300 text-amber-950">
+                    <Star className="h-6 w-6 fill-current" aria-hidden="true" />
+                  </span>
                   <div>
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-white/70">Sparkle Bank</p>
-                    <p className="text-3xl md:text-4xl font-extrabold font-kid">{profile?.points || 0}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] uppercase tracking-widest font-bold text-white/70">Pocket Money</p>
-                    <p className="text-xl md:text-2xl font-extrabold font-kid text-kid-accent">${((profile?.points || 0) / 100).toFixed(2)}</p>
+                    <p className="text-sm font-semibold text-white">Stars earned</p>
+                    <p className="font-kid text-3xl font-bold text-white">{points}</p>
                   </div>
                 </div>
               </div>
             </section>
 
-            {/* Main Columns */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Left Column */}
-              <div className="lg:col-span-7 space-y-6">
-                <section>
-                  <div className="flex justify-between items-end px-2 mb-4">
-                    <h3 className="text-lg font-bold text-parent-brand font-kid">Daily quests</h3>
-                    <button className="text-xs font-bold text-parent-accent hover:text-indigo-800 transition-colors">
-                      + Create my own mission
+            <section className="rounded-2xl border border-violet-100 bg-white p-5 md:p-7">
+              <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-violet-100 text-violet-700">
+                      <ClipboardList className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <h3 className="font-kid text-xl font-bold text-slate-900">Your quests</h3>
+                  </div>
+                  <p className="mt-2 text-sm text-slate-600">
+                    {isFutureQuestDate
+                      ? "These quests will be ready on this day."
+                      : isPastQuestDate
+                        ? "Here’s what you were working on that day."
+                        : "Choose a quest, do your best, and let your grown-up know when it’s done."}
+                  </p>
+                </div>
+                <span className="rounded-full bg-violet-50 px-3 py-1 text-sm font-bold text-violet-800">
+                  {activeTasks.length} ready
+                </span>
+              </div>
+
+              {completionError && (
+                <p role="alert" className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
+                  {completionError}
+                </p>
+              )}
+
+              {activeTasks.length === 0 ? (
+                <div className="rounded-xl bg-violet-50 px-5 py-8 text-center">
+                  <Sparkles className="mx-auto h-8 w-8 text-violet-700" aria-hidden="true" />
+                  <h4 className="mt-3 font-kid text-lg font-bold text-slate-900">
+                    {isFutureQuestDate
+                      ? "No quests planned yet"
+                      : isPastQuestDate
+                        ? "No quests on this day"
+                        : "All caught up!"}
+                  </h4>
+                  <p className="mt-1 text-sm text-slate-700">
+                    {isFutureQuestDate
+                      ? "No quests are planned for this day yet."
+                      : isPastQuestDate
+                        ? "There are no quests saved for this day."
+                        : "You can take a break or suggest a quest for your family."}
+                  </p>
+                  {!isPastQuestDate && (
+                    <button
+                      type="button"
+                      onClick={() => setShowSuggestForm(true)}
+                      className="mt-4 rounded-full bg-violet-700 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-violet-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-700"
+                    >
+                      Suggest a quest
                     </button>
-                  </div>
-                  <div className="space-y-4">
-                    {/* Placeholder Active Quest */}
-                    <div className="p-4 rounded-3xl border border-slate-200 bg-white shadow-sm flex justify-between items-center group">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 flex items-center justify-center text-xl">🧺</div>
-                        <div className="flex flex-col gap-0.5">
-                          <h4 className="text-sm font-bold text-parent-brand">Help with laundry</h4>
+                  )}
+                </div>
+              ) : (
+                <ul className="grid gap-3 sm:grid-cols-2">
+                  {activeTasks.map((task) => (
+                    <li key={task.id} className="flex min-w-0 flex-col justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
+                          <Star className="h-5 w-5 fill-current" aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0">
+                          <h4 className="break-words font-bold text-slate-900">{task.title}</h4>
+                          <p className="mt-1 text-sm font-semibold text-violet-800">+{task.points} stars</p>
                         </div>
                       </div>
-                      <span className="text-sm font-extrabold text-parent-accent">+50</span>
-                    </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCompleteTask(task)}
+                        disabled={isFutureQuestDate || completingTaskId === task.id}
+                        aria-busy={completingTaskId === task.id}
+                        className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-teal-700 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-teal-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                        {completingTaskId === task.id
+                          ? "Saving…"
+                          : isFutureQuestDate
+                            ? "Starts that day"
+                            : "Mark done"}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
-                    {/* Placeholder Completed Quest */}
-                    <div className="p-4 rounded-3xl border border-slate-100 bg-slate-50 flex justify-between items-center group">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-emerald-400 text-white flex items-center justify-center">
-                          <CheckCircle2 className="w-5 h-5" />
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <h4 className="text-sm font-bold text-slate-400 line-through">Water the plants</h4>
-                        </div>
-                      </div>
-                      <span className="text-sm font-extrabold text-slate-400">+15</span>
-                    </div>
-                  </div>
-                </section>
-              </div>
-
-              {/* Right Column */}
-              <div className="lg:col-span-5 space-y-6">
-                {/* Weekly Streak Placeholder */}
-                <section className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm min-h-[200px] flex flex-col justify-between">
-                  <div>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Weekly streak</p>
-                  </div>
-                  <div className="flex justify-between items-end px-4 mt-12">
-                    {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => (
-                      <span key={i} className="text-[10px] font-bold text-slate-400">{day}</span>
-                    ))}
-                  </div>
-                </section>
-                
-                {/* Preset Task Library Placeholder */}
-                <section className="bg-purple-50 p-6 rounded-3xl border border-purple-100 shadow-sm">
-                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-4">Preset task library</p>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { title: "Read 20 mins", freq: "Daily", pts: 15, icon: "📚" },
-                      { title: "Help with laundry", freq: "Weekly", pts: 50, icon: "🧺" },
-                      { title: "Eat all vegetables", freq: "Daily", pts: 20, icon: "🥦" },
-                      { title: "Take out the trash", freq: "Weekly", pts: 30, icon: "🗑️" },
-                    ].map((preset, idx) => (
-                      <div key={idx} className="p-3 rounded-2xl bg-white border border-slate-100 flex flex-col gap-2">
-                        <div className="w-8 h-8 rounded-xl bg-slate-50 flex items-center justify-center text-lg">{preset.icon}</div>
-                        <div>
-                          <h4 className="text-xs font-bold text-parent-brand leading-tight">{preset.title}</h4>
-                          <p className="text-[10px] text-slate-400 font-medium mt-0.5">{preset.freq} · {preset.pts} pts</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-                
-                {/* Next Reward Unlock Placeholder */}
-                <section className="bg-amber-50 p-6 rounded-3xl border border-amber-100 shadow-sm">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-kid-accent flex items-center justify-center text-xl shadow-sm shadow-amber-200">
-                      🎁
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-parent-brand">Next reward unlock</h4>
-                      <p className="text-xs text-slate-500 font-medium">At 1,500 sparkle points</p>
-                    </div>
-                  </div>
-                  
-                  <div className="w-full bg-amber-100 h-2 rounded-full overflow-hidden mb-2">
-                    <div className="h-full bg-kid-accent rounded-full w-[70%]"></div>
-                  </div>
-                  <p className="text-xs font-bold text-slate-500">520 points to go — that's $5.20!</p>
-                </section>
-              </div>
-            </div>
+            <ProgressAnalyticsCard
+              tasks={tasks}
+              selectedChildEmail={user?.email || profile?.email}
+              mode="child"
+              title="My progress"
+              subtitle="See the quests you’ve completed and stars you’ve earned"
+              accentColor="#7c3aed"
+              showKidFilter={false}
+            />
 
             {/* Custom Quest Suggestion Box */}
-            <section className="ui-panel p-6 bg-white space-y-4">
-              <div className="flex justify-between items-center flex-wrap gap-4">
+            <section className="relative overflow-hidden ui-panel p-6 bg-white space-y-4">
+              <CloudHillsGraphic position="bottom" opacity="opacity-15" accentColor="#6366f1" />
+              <div className="relative z-10 flex justify-between items-center flex-wrap gap-4">
                 <div>
                   <h3 className="font-bold text-slate-800 text-base ui-title">Suggest a Custom Quest</h3>
                   <p className="text-xs text-slate-500 mt-0.5">Want to earn points for doing something helpful? Propose it here!</p>
@@ -466,108 +565,68 @@ export default function ChildDashboard() {
               )}
             </section>
 
-            {/* Tasks Columns */}
-            <section className="grid gap-6 md:grid-cols-2">
-              {/* Active Quests */}
-              <div className="ui-panel p-6 bg-white space-y-4">
-                <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
-                  <ClipboardList className="w-5 h-5 text-teal-600" />
-                  <h3 className="font-bold text-slate-900 ui-title text-base">Active Quests</h3>
+            <section className="rounded-2xl border border-amber-100 bg-white p-5 md:p-7">
+              <div className="mb-4 flex items-center gap-2">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-100 text-amber-900">
+                  <Clock className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <div>
+                  <h3 className="font-kid text-lg font-bold text-slate-900">Waiting for your grown-up</h3>
+                  <p className="text-sm text-slate-600">These quest ideas are waiting for approval.</p>
                 </div>
-                {(() => {
-                  const activeTasks = tasks.filter(t => t.status === "ACTIVE");
-                  if (activeTasks.length === 0) {
-                    return <p className="text-slate-400 text-xs text-center py-6">No active quests right now. Your parents will assign them, or suggest one above!</p>;
-                  }
-                  return (
-                    <div className="space-y-2.5">
-                      {activeTasks.map((task) => (
-                        <div key={task.id} className="border border-slate-100 p-3.5 rounded-xl bg-slate-50/30 flex items-center justify-between gap-4">
-                          <div>
-                            <h4 className="font-semibold text-slate-800 text-sm">{task.title}</h4>
-                            <span className="text-[10px] text-slate-500 mt-1 inline-block bg-teal-50 text-teal-800 border border-teal-100 px-2 py-0.5 rounded-md font-bold">
-                              {task.points} pts ({((task.points) / (family?.takaConversionRate || 1)).toFixed(0)}৳)
-                            </span>
-                          </div>
-                          <button
-                            onClick={() => handleCompleteTask(task)}
-                            className="px-3.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Claim Completed</span>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
               </div>
-
-              {/* Suggestion Queue */}
-              <div className="ui-panel p-6 bg-white space-y-4">
-                <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
-                  <Clock className="w-5 h-5 text-amber-500" />
-                  <h3 className="font-bold text-slate-900 ui-title text-base">Suggested Quests Queue</h3>
-                </div>
-                {(() => {
-                  const pendingTasks = tasks.filter(t => t.status === "PENDING_APPROVAL");
-                  if (pendingTasks.length === 0) {
-                    return <p className="text-slate-400 text-xs text-center py-6">No suggestions waiting. Click &quot;Suggest Quest&quot; to propose ideas!</p>;
-                  }
-                  return (
-                    <div className="space-y-2.5">
-                      {pendingTasks.map((task) => (
-                        <div key={task.id} className="border border-slate-100 p-3.5 rounded-xl bg-slate-50/30 flex items-center justify-between gap-4">
-                          <div>
-                            <h4 className="font-semibold text-slate-600 text-sm">{task.title}</h4>
-                            <span className="text-[10px] text-slate-400 mt-1 inline-block bg-amber-50 text-amber-800 border border-amber-100 px-2 py-0.5 rounded-md font-bold">
-                              Pending Parent Review
-                            </span>
-                          </div>
-                          <span className="text-xs font-bold text-slate-500 mr-2">
-                            +{task.points} pts
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </div>
+              {pendingTasks.length === 0 ? (
+                <p className="rounded-xl bg-slate-50 px-4 py-5 text-sm text-slate-700">
+                  No quest ideas waiting right now.
+                </p>
+              ) : (
+                <ul className="grid gap-3 sm:grid-cols-2">
+                  {pendingTasks.map((task) => (
+                    <li key={task.id} className="flex items-center justify-between gap-3 rounded-xl bg-amber-50 px-4 py-3">
+                      <div className="min-w-0">
+                        <h4 className="break-words font-semibold text-slate-900">{task.title}</h4>
+                        <span className="mt-1 inline-block text-sm font-medium text-amber-900">Waiting for approval</span>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-white px-3 py-1 text-sm font-bold text-amber-900">
+                        +{task.points} stars
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </section>
 
             {/* Completed Tasks (Bottom) */}
-            <section className="ui-panel p-6 bg-white space-y-4">
-              <div className="flex items-center gap-2 pb-1 border-b border-slate-100">
+            <section className="relative overflow-hidden ui-panel p-6 bg-white space-y-4">
+              <QuestBannersGraphic position="top" opacity="opacity-20" accentColor="#10b981" />
+              <div className="relative z-10 flex items-center gap-2 pb-1 border-b border-slate-100">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                 <h3 className="font-bold text-slate-900 ui-title text-base">Completed Quests Room</h3>
               </div>
-              {(() => {
-                const completedTasks = tasks
-                  .filter(t => t.status === "COMPLETED")
-                  .sort((a, b) => {
-                    const aTime = (a.completedAt as any)?.seconds || 0;
-                    const bTime = (b.completedAt as any)?.seconds || 0;
-                    return bTime - aTime;
-                  });
-                if (completedTasks.length === 0) {
-                  return <p className="text-slate-400 text-xs text-center py-6">You haven&apos;t completed any quests yet. Go crush some active quests!</p>;
-                }
-                return (
-                  <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 max-h-[300px] overflow-y-auto pr-1">
-                    {completedTasks.map((task) => (
-                      <div key={task.id} className="border border-emerald-100 p-3 rounded-xl bg-emerald-50/20 flex items-center justify-between gap-3 shadow-sm">
+              {completedTasks.length === 0 ? (
+                <p className="py-6 text-center text-sm text-slate-700">Your completed quests will show up here.</p>
+              ) : (
+                <ul className="grid max-h-[300px] gap-3 overflow-y-auto pr-1 sm:grid-cols-2 md:grid-cols-3">
+                  {completedTasks.map((task) => {
+                    const completedAt = (task.completedAt as { seconds?: number } | null)?.seconds;
+                    return (
+                      <li key={task.id} className="flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50 p-3">
                         <div className="min-w-0">
-                          <h4 className="font-semibold text-slate-700 line-through text-sm truncate">{task.title}</h4>
-                          <p className="text-[9px] text-slate-400 mt-0.5">Completed {task.completedAt ? new Date((task.completedAt as any).seconds * 1000).toLocaleDateString() : "just now"}</p>
+                          <h4 className="truncate text-sm font-semibold text-slate-900">{task.title}</h4>
+                          <p className="mt-1 text-xs text-slate-700">
+                            {completedAt
+                              ? `Completed ${new Date(completedAt * 1000).toLocaleDateString()}`
+                              : "Completed"}
+                          </p>
                         </div>
-                        <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0">
-                          +{task.points} pts
+                        <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-bold text-emerald-900">
+                          +{task.points}
                         </span>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </section>
           </div>
         )}
@@ -596,6 +655,7 @@ export default function ChildDashboard() {
                     <button
                       key={t}
                       onClick={() => setChildTheme(t)}
+                      aria-pressed={childTheme === t}
                       className={`py-3 rounded-xl border font-bold capitalize transition-all cursor-pointer ${
                         childTheme === t
                           ? "border-teal-500 bg-teal-50 text-teal-800 shadow-sm"
@@ -650,7 +710,7 @@ export default function ChildDashboard() {
             <div className="ui-panel p-6 md:p-8 bg-white space-y-6">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 bg-amber-50 border border-amber-100 text-amber-600 rounded-2xl flex items-center justify-center">
-                  <Award className="w-8 h-8 animate-bounce" />
+                  <Award className="w-8 h-8" />
                 </div>
                 <div>
                   <h4 className="text-xl font-bold text-slate-800">{profile?.displayName}</h4>

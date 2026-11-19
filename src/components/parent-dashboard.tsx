@@ -21,6 +21,8 @@ import {
 import type { Family, ChildProfile, AppUser, Task } from "@/lib/types/domain";
 import NotificationCenter from "@/components/notifications";
 import { playQuestSuccessSound } from "@/lib/utils/sound";
+import { toDateString } from "@/lib/utils/analytics";
+import { getQuestDateLabel, getTaskScheduledDate } from "@/lib/utils/task-dates";
 import {
   LayoutDashboard,
   Users,
@@ -36,6 +38,13 @@ import {
   ArrowRight,
   Award
 } from "lucide-react";
+import ProgressAnalyticsCard from "@/components/progress-analytics-card";
+import {
+  CelestialStarsGraphic,
+  MountainSummitGraphic,
+  SmoothWaveGraphic,
+  QuestBannersGraphic,
+} from "@/components/ui/section-graphics";
 
 export default function ParentDashboard() {
   const { user, profile, logout, memberships, switchProfile, showToast } = useAuth();
@@ -293,6 +302,7 @@ export default function ParentDashboard() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [customTaskTitle, setCustomTaskTitle] = useState("");
   const [customTaskPoints, setCustomTaskPoints] = useState("10");
+  const [assignmentDate, setAssignmentDate] = useState(() => toDateString(new Date()));
 
   const dashboardLoading = !!familyIdToUse && (!family || !childrenLoaded);
 
@@ -572,7 +582,12 @@ export default function ParentDashboard() {
     }
   };
 
-  const handleAssignTask = async (title: string, points: number, targetChildOverride?: ChildProfile | null) => {
+  const handleAssignTask = async (
+    title: string,
+    points: number,
+    targetChildOverride?: ChildProfile | null,
+    scheduledDate = assignmentDate
+  ) => {
     const targetChild = targetChildOverride || selectedChild;
     if (!familyIdToUse || !targetChild) return;
     const targetChildUser = childUsers.find(u => u.email === targetChild.email);
@@ -587,6 +602,7 @@ export default function ParentDashboard() {
         childId: targetChildUser?.id || null,
         status: "ACTIVE",
         requestedBy: "parent",
+        scheduledDate,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
@@ -882,41 +898,20 @@ export default function ParentDashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Left Column */}
                 <div className="lg:col-span-7 space-y-6">
-                  {/* Family Analytics Section */}
+                  {/* Family Analytics Section with ProgressAnalyticsCard */}
+                  <ProgressAnalyticsCard
+                    tasks={tasks}
+                    childrenList={children}
+                    selectedChildEmail={selectedOverviewKidEmail}
+                    onSelectChildEmail={setSelectedOverviewKidEmail}
+                    mode="parent"
+                    title="Family Progress Analytics"
+                    subtitle="Track daily completions, stars earned, and performance trends"
+                    accentColor="#6366f1"
+                  />
+
+                  {/* Kid Profiles Section */}
                   <section className="space-y-4">
-                    <div className="flex justify-between items-end px-2">
-                      <h3 className="text-lg font-bold text-parent-brand font-kid">Family analytics</h3>
-                      <span className="text-xs font-bold text-parent-accent uppercase tracking-wider">Real-time sync</span>
-                    </div>
-
-                    {/* Chart Card */}
-                    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm min-h-[240px] flex flex-col justify-between">
-                      <div>
-                        <div className="flex justify-between items-start mb-2">
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Completion this week</p>
-                          <div className="flex gap-4">
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2.5 h-2.5 rounded-full bg-kid-brand"></div>
-                              <span className="text-xs font-semibold text-slate-500">Leo</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <div className="w-2.5 h-2.5 rounded-full bg-parent-accent"></div>
-                              <span className="text-xs font-semibold text-slate-500">Maya</span>
-                            </div>
-                          </div>
-                        </div>
-                        <h4 className="text-3xl font-extrabold text-parent-brand font-kid tracking-tight">+14% vs last week</h4>
-                      </div>
-
-                      {/* Chart Placeholder */}
-                      <div className="flex justify-between items-end px-4 mt-12">
-                        {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => (
-                          <span key={i} className="text-[10px] font-bold text-slate-400">{day}</span>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    {/* Kid Cards Row */}
                     <div className="grid gap-4 sm:grid-cols-2">
                       {children.length === 0 ? (
                         <p className="text-sm text-slate-500">No kids added yet.</p>
@@ -1016,8 +1011,9 @@ export default function ParentDashboard() {
                   </section>
 
                   {/* Kid's Assignments Section (Under Kids Profile with Progress) */}
-                  <section className="bg-white p-6 rounded-3xl border border-slate-200/70">
-                    <div className="flex justify-between items-center mb-6">
+                  <section className="relative overflow-hidden bg-white p-6 rounded-3xl border border-slate-200/70 shadow-xs">
+                    <MountainSummitGraphic position="bottom" opacity="opacity-15" accentColor="#10b981" />
+                    <div className="relative z-10 flex justify-between items-center mb-6">
                       <h3 className="text-lg font-bold text-parent-brand font-kid">
                         {selectedOverviewKid ? `${selectedOverviewKid.name}'s assignments` : "Kid's assignments"}
                       </h3>
@@ -1037,6 +1033,10 @@ export default function ParentDashboard() {
                           let statusText = "Assigned";
                           if (task.status === "COMPLETED") statusText = "Completed";
                           if (task.status === "PENDING_APPROVAL") statusText = "Awaiting approval";
+                          const scheduledDate = getTaskScheduledDate(task);
+                          const scheduledLabel = scheduledDate
+                            ? getQuestDateLabel(scheduledDate, toDateString(new Date()))
+                            : "";
 
                           const getIcon = (title: string, i: number) => {
                             const t = title.toLowerCase();
@@ -1056,7 +1056,9 @@ export default function ParentDashboard() {
                                 </div>
                                 <div>
                                   <h4 className="text-sm font-bold text-parent-brand">{task.title}</h4>
-                                  <p className="text-xs text-slate-400 font-medium mt-0.5">{statusText}</p>
+                                  <p className="text-xs text-slate-600 font-medium mt-0.5">
+                                    {statusText}{scheduledLabel ? ` · ${scheduledLabel}` : ""}
+                                  </p>
                                 </div>
                               </div>
 
@@ -1083,6 +1085,21 @@ export default function ParentDashboard() {
                     </div>
                     
                     <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col gap-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-indigo-50 p-4">
+                        <div>
+                          <label htmlFor="overview-assignment-date" className="text-sm font-bold text-slate-900">
+                            Quest day
+                          </label>
+                          <p className="mt-1 text-xs text-slate-700">New quests are planned for this day.</p>
+                        </div>
+                        <input
+                          id="overview-assignment-date"
+                          type="date"
+                          value={assignmentDate}
+                          onChange={(e) => setAssignmentDate(e.target.value)}
+                          className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-700"
+                        />
+                      </div>
                       <div className="grid gap-2">
                         {[
                           { title: "Read 20 mins", freq: "DAILY", pts: "15", icon: "📚", color: "bg-blue-50" },
@@ -1131,8 +1148,9 @@ export default function ParentDashboard() {
                   </section>
 
                   {/* Approval Inbox in Right Sidebar */}
-                  <section className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-                    <div className="flex justify-between items-start mb-6">
+                  <section className="relative overflow-hidden bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+                    <QuestBannersGraphic position="top" opacity="opacity-20" accentColor="#f59e0b" />
+                    <div className="relative z-10 flex justify-between items-start mb-6">
                       <div>
                         <h3 className="text-lg font-bold text-parent-brand font-kid">Approval inbox</h3>
                         <p className="text-xs text-slate-400 font-medium mt-1">Review completed and kid-created tasks</p>
@@ -1302,8 +1320,20 @@ export default function ParentDashboard() {
                 </div>
               </section>
 
+              {/* Kid's Daily Progress Analytics */}
+              <ProgressAnalyticsCard
+                tasks={tasks}
+                selectedChildEmail={selectedChild.email}
+                mode="parent"
+                title={`${selectedChild.name}'s Quest Progress`}
+                subtitle="Daily performance, stars earned, and quest completion history"
+                showKidFilter={false}
+                accentColor="#0d9488"
+              />
+
               {/* Behavior & Conversion Controls */}
-              <section className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+              <section className="relative overflow-hidden bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-6">
+                <SmoothWaveGraphic position="bottom" opacity="opacity-15" accentColor="#0d9488" />
                 <h3 className="text-base font-extrabold text-parent-brand font-kid tracking-tight">Behavior & Conversion Controls</h3>
                 <div className="grid gap-6 md:grid-cols-2">
                   {/* Behavior Grade */}
@@ -1372,7 +1402,8 @@ export default function ParentDashboard() {
               </section>
 
               {/* Quest Master (Assign Tasks & Presets) */}
-              <section className="grid gap-6 md:grid-cols-2">
+              <section className="relative overflow-hidden grid gap-6 md:grid-cols-2">
+                <CelestialStarsGraphic position="top" opacity="opacity-15" accentColor="#6366f1" />
                 {/* Assign Presets */}
                 <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-5">
                   <h3 className="text-base font-extrabold text-parent-brand font-kid tracking-tight">Quick Quest Presets</h3>
@@ -1402,6 +1433,19 @@ export default function ParentDashboard() {
                 <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-100 shadow-sm space-y-5">
                   <h3 className="text-base font-extrabold text-parent-brand font-kid tracking-tight">Create Custom Quest</h3>
                   <form onSubmit={handleCreateCustomTask} className="space-y-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="family-assignment-date" className="text-sm font-semibold text-slate-800">
+                        Quest day
+                      </label>
+                      <input
+                        id="family-assignment-date"
+                        className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-700"
+                        type="date"
+                        value={assignmentDate}
+                        onChange={(e) => setAssignmentDate(e.target.value)}
+                        required
+                      />
+                    </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Quest Title</label>
                       <input
@@ -1461,6 +1505,10 @@ export default function ParentDashboard() {
                         const iconList = ["🪄", "🐠", "📚", "🧹", "🥦", "🗑️"];
                         const icon = iconList[idx % iconList.length];
                         const pointsColor = task.status === "COMPLETED" ? "text-parent-accent" : "text-parent-accent";
+                        const scheduledDate = getTaskScheduledDate(task);
+                        const scheduledLabel = scheduledDate
+                          ? getQuestDateLabel(scheduledDate, toDateString(new Date()))
+                          : "";
                         let statusText = "Assigned";
                         if (task.status === "COMPLETED") statusText = "Completed";
                         if (task.status === "PENDING_APPROVAL") statusText = "Awaiting approval";
@@ -1473,7 +1521,9 @@ export default function ParentDashboard() {
                               </div>
                               <div className="flex flex-col gap-0.5">
                                 <h4 className="text-sm font-bold text-parent-brand">{task.title}</h4>
-                                <p className="text-xs text-slate-400 font-medium">{statusText}</p>
+                                <p className="text-xs text-slate-600 font-medium">
+                                  {statusText}{scheduledLabel ? ` · ${scheduledLabel}` : ""}
+                                </p>
                               </div>
                             </div>
                             

@@ -61,7 +61,7 @@ npm run dev
 
 6. Open:
 ```text
-http://localhost:3000
+http://localhost:3040
 ```
 
 ## Firestore Collections
@@ -70,6 +70,8 @@ http://localhost:3000
 - milestones
 - spendingRequests
 - pointEvents
+
+New quests include a `scheduledDate` (`YYYY-MM-DD`) and default to today. Children can browse quests by past, current, and future dates. Existing quests without a scheduled date use their creation date.
 
 Detailed schema is documented in docs/DATABASE_SCHEMA.md.
 
